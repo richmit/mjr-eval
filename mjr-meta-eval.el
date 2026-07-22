@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     0.1
+;; Version:     0.2
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -49,9 +49,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
-(defvar 
-)
-
 (defcustom mjr-meta-eval-use-ido t
   "Use `ido-completing-read' if non-NIL.  Otherwise use `read-answer'.
 `read-answer' provides a faster, but more terse user interface."
