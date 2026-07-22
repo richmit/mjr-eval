@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     0.2
+;; Version:     0.5
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -133,7 +133,7 @@ Arguments:
       - In lisp and lisp adjacent modes, look for a sexp at the point (point should be on the opening paren or just after the closing paren).
       - In non-lisp modes, look a string not containing spaces.
       - If whatever is found doesn't look like a single integer, then the user is given the opportunity to edit it before evaluation.
- - EVAL-HOW: How to evaluate the string.  It is a string and may have one of four values:
+ - EVAL-HOW: How to evaluate EVAL-STR.  Valid values are the following 6 keyword symbols:
      - :int ..... Uses `mjr-meta-eval-multibase-convert'
      - :calc .... like calling `quick-calc' (C-c * q)
      - :elisp ... like calling `eval-expression' (M-:)
@@ -245,4 +245,3 @@ Arguments:
 (provide 'mjr-meta-eval)
 
 ;;; filename ends here
-
