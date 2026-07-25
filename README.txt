@@ -1,4 +1,5 @@
-# mjr-meta-eval
+mjr-meta-eval
+=============
 
 The Emacs function `mjr-meta-eval' provides an easy way to evaluate an
 expression in a buffer and place the results on the kill ring.
