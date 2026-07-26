@@ -1,4 +1,4 @@
-;; mjr-meta-eval --- Provide verGo.sh in Emacs. -*-coding: utf-8 lexical-binding:t; mode:emacs-lisp; fill-column:158 -*-
+;; mjr-meta-eval -*-coding: utf-8 lexical-binding:t; mode:emacs-lisp; fill-column:158 -*-
 
 ;; Copyright (c) 2026-2026 Mitch Richling <https://www.mitchr.me>.  All rights reserved.
 ;;
@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     0.7
+;; Version:     0.8
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -211,46 +211,46 @@ Arguments:
       (kill-new prettyo)
       prettyo)))
 
-;; (MJR-meta-eval "inv([1,2,3;4,5,6;7,8,10])" :octave)
+;; (mjr-meta-eval "inv([1,2,3;4,5,6;7,8,10])" :octave)
 ;; "ans =
 ;;   -0.6667  -1.3333   1.0000
 ;;   -0.6667   3.6667  -2.0000
 ;;    1.0000  -2.0000   1.0000"
 ;; 
-;; (MJR-meta-eval "inv([1,2,3;4,5,6;7,8,10])" :calc)
+;; (mjr-meta-eval "inv([1,2,3;4,5,6;7,8,10])" :calc)
 ;; "[[-0.666666666667, -1.33333333333, 1], [-0.666666666667, 3.66666666667, -2], [1, -2, 1]]"
 ;; 
-;; (MJR-meta-eval "inv([[1,2,3],[4,5,6],[7,8,10]])" :calc)
+;; (mjr-meta-eval "inv([[1,2,3],[4,5,6],[7,8,10]])" :calc)
 ;; "[[-0.666666666667, -1.33333333333, 1], [-0.666666666667, 3.66666666667, -2], [1, -2, 1]]"
 ;; 
-;; (MJR-meta-eval "invert(matrix([1,2,3],[4,5,6],[7,8,10]))" :maxima)
+;; (mjr-meta-eval "invert(matrix([1,2,3],[4,5,6],[7,8,10]))" :maxima)
 ;; "matrix([-2/3,-4/3,1],[-2/3,11/3,-2],[1,-2,1])"
 ;; 
-;; (MJR-meta-eval "expand((x+1)^10)" :maxima)
+;; (mjr-meta-eval "expand((x+1)^10)" :maxima)
 ;; "x^10+10*x^9+45*x^8+120*x^7+210*x^6+252*x^5+210*x^4+120*x^3+45*x^2+10*x+1"
 ;; 
-;; (MJR-meta-eval "expand((x+1)^10)" :calc)
+;; (mjr-meta-eval "expand((x+1)^10)" :calc)
 ;; "x^10 + 10 x^9 + 45 x^8 + 120 x^7 + 210 x^6 + 252 x^5 + 210 x^4 + 120 x^3 + 45 x^2 + 10 x + 1"
 ;; 
-;; (MJR-meta-eval "(+ 1 2)" :elisp)
+;; (mjr-meta-eval "(+ 1 2)" :elisp)
 ;; "3"
 ;; 
-;; (MJR-meta-eval "(+ 1 2)" :lisp)
+;; (mjr-meta-eval "(+ 1 2)" :lisp)
 ;; "3"
 ;; 
-;; (MJR-meta-eval "1+2" :calc)
+;; (mjr-meta-eval "1+2" :calc)
 ;; "3"
 ;; 
-;; (MJR-meta-eval "float(sin(1))" :maxima)
+;; (mjr-meta-eval "float(sin(1))" :maxima)
 ;; "0.8414709848078965"
 ;; 
-;; (MJR-meta-eval "sin(1)" :octave)
+;; (mjr-meta-eval "sin(1)" :octave)
 ;; "ans = 0.8415"
 ;; 
-;; (MJR-meta-eval "sin(1)" :calc)
+;; (mjr-meta-eval "sin(1)" :calc)
 ;; "0.0174524064373"
 ;; 
-;; (MJR-meta-eval "(sin 1)" :elisp)
+;; (mjr-!meta-eval "(sin 1)" :elisp)
 ;; "0.8414709848078965"
 
 (provide 'mjr-meta-eval)
