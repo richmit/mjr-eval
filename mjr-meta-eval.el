@@ -180,7 +180,7 @@ Arguments:
                                                     (list '("maxima" ?m "Evaluate in maxima session")))
                                                   (when (and (boundp 'inferior-octave-process) (process-live-p inferior-octave-process))
                                                     (list '("octave" ?o "Evaluate in octave session"))))))
-                             (intern (concat ":" (if (and mjr-meta-eval-use-ido (require 'ido nil :noerror))
+                             (intern (concat ":" (if (and mjr-meta-eval-use-ido (and (boundp 'ido-everywhere) ido-everywhere))
                                                      (ido-completing-read "Eval how: " (mapcar #'car ev-meth))
                                                      (let ((read-answer-short t))
                                                        (read-answer "Eval how: " ev-meth))))))))))
