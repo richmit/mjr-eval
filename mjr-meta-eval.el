@@ -1,4 +1,4 @@
-;; mjr-meta-eval -*-coding: utf-8 lexical-binding:t; mode:emacs-lisp; fill-column:158 -*-
+;;; mjr-meta-eval -- evaluate mathematical expressions -*- lexical-binding:t; coding: utf-8; mode:emacs-lisp; fill-column:158 -*-
 
 ;; Copyright (c) 2026-2026 Mitch Richling <https://www.mitchr.me>.  All rights reserved.
 ;;
@@ -58,9 +58,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defcustom mjr-meta-eval-octave-timeout 1
-  "The number of seconds mjr-meta-eval waits before checking for the result of an octave computation.  
-If a computation takes longer, then mjr-meta-eval will likely return an empty string or nil; however, the correct value will eventually show up in the
-inferior octave process buffer. Values less than 1 result in a 1s timeout."
+  "The number of seconds `mjr-meta-eval' waits before checking for the result of an octave computation.
+If a computation takes longer, then `mjr-meta-eval' will likely return an empty string or nil; however, the correct value will eventually show up in the
+inferior octave process buffer.  Values less than 1 result in a 1s timeout."
   :type 'integer
   :group 'mjr-meta-eval)
 
@@ -133,13 +133,13 @@ Recognized integers:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun mjr-meta-eval (eval-str &optional eval-how)
-  "Evaluate the region or expression near the point using maxima, calc, elisp, or lisp (via slime), put the result in the kill ring, and print it in a message.
+  "Evaluate the region or expression near the point using maxima, calc, elisp, or Lisp (via slime), put the result in the kill ring, and print it in a message.
 Arguments:
  - EVAL-STR: A string to evaluate.
    In interactive mode:
     - If region is active, then it is used.
-    - If the region is inactive, then look for an expression near the point.  
-      - In lisp and lisp adjacent modes, look for a sexp at the point (point should be on the opening paren or just after the closing paren).
+    - If the region is inactive, then look for an expression near the point.
+      - In Lisp and Lisp adjacent modes, look for a sexp at the point (point should be on the opening paren or just after the closing paren).
       - In non-lisp modes, look a string not containing spaces.
       - If whatever is found doesn't look like a single integer, then the user is given the opportunity to edit it before evaluation.
  - EVAL-HOW: How to evaluate EVAL-STR.  Valid values are the following 6 keyword symbols:
@@ -147,12 +147,12 @@ Arguments:
      - :calc .... Like calling `quick-calc' (C-c * q)
      - :elisp ... Like calling `eval-expression' (M-:)
      - :lisp .... Like calling slime-interactive-eval (C-:) in a slime buffer
-                  Only available if SLIME has an active connection to a common lisp repl (use `slime' to start one)
+                  Only available if SLIME has an active connection to a common Lisp repl (use `slime' to start one)
      - :maxima .. Use maxima
                   Only available if the maxima package is available.
                   If maxima is not already running, then a maxima session will be started automatically.
                   Sets the maxima session display2d preference to false.
-     - :octave .. Use octave. 
+     - :octave .. Use octave.
                   Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
                   Evaluation time is limited to `mjr-meta-eval-octave-timeout' seconds.
                   Sets the octave session output format setting to compact.
@@ -161,12 +161,12 @@ Arguments:
    If EVAL-HOW is missing, possible in non-interactive mode, then it is set to 'calc if it is not being ignored because EVAL-STR contains a single integer.
    In interactive mode unavailable methods will not be listed."
   (interactive (let ((eval-str (or (and transient-mark-mode
-                                        (region-active-p) 
-                                        (mark)  
+                                        (region-active-p)
+                                        (mark)
                                         (buffer-substring-no-properties (region-beginning) (region-end)))
                                    (read-string "Expression to evaluate: " (if (string-match "\\(slime\\|lisp\\)" (symbol-name major-mode))
                                                                                (thing-at-point 'sexp)
-                                                                               (and (thing-at-point-looking-at "\\([^[:space:]]+\\)" 30) 
+                                                                               (and (thing-at-point-looking-at "\\([^[:space:]]+\\)" 30)
                                                                                     (match-string 0)))
                                                 ""))))
                  (if (mjr-meta-eval-multibase-convert eval-str)
@@ -184,7 +184,7 @@ Arguments:
                                                      (ido-completing-read "Eval how: " (mapcar #'car ev-meth))
                                                      (let ((read-answer-short t))
                                                        (read-answer "Eval how: " ev-meth))))))))))
-  (let* ((eval-how (or eval-how 
+  (let* ((eval-how (or eval-how
                        (when (mjr-meta-eval-multibase-convert eval-str) :int)
                        :calc))
          (eval-str (format "%s" eval-str))
@@ -195,7 +195,7 @@ Arguments:
                      (:maxima (progn (maxima-single-string-wait (concat "display2d:false$ " eval-str))
                                       (string-clean-whitespace (maxima-last-output-noprompt))))
                      (:lisp   (cl-second (slime-eval `(swank:eval-and-grab-output ,eval-str))))
-                     (:octave (let ((tmp-buf (generate-new-buffer "*temp*" 't)))                                 
+                     (:octave (let ((tmp-buf (generate-new-buffer "*temp*" 't)))
                                     (with-current-buffer inferior-octave-buffer
                                       (comint-redirect-send-command (concat "format compact; " eval-str) tmp-buf nil t)
                                       (sleep-for (max 1 mjr-meta-eval-octave-timeout))
@@ -255,4 +255,4 @@ Arguments:
 
 (provide 'mjr-meta-eval)
 
-;;; filename ends here
+;;; mjr-meta-eval.el ends here
