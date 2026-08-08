@@ -195,7 +195,7 @@ Arguments:
                   Sets the octave session output format setting to compact.
    If EVAL-STR contains a single integer, as detected by `mjr-meta-eval-multibase-convert', then evaluation method is set to :int regardless of the
    value of EVAL-HOW -- in interactive mode the user is not prompted to provide a value for EVAL-HOW in this case.
-   If EVAL-HOW is missing, possible in non-interactive mode, then it is set to 'calc if it is not being ignored because EVAL-STR contains a single integer.
+   If EVAL-HOW is missing, possible in non-interactive mode, then it is set to :calc if it is not being ignored because EVAL-STR contains a single integer.
    In interactive mode unavailable methods will not be listed."
   (interactive (let ((eval-str (or (and transient-mark-mode
                                         (region-active-p)
