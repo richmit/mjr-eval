@@ -94,10 +94,15 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
-(defcustom mjr-meta-eval-octave-timeout 1
-  "The number of seconds `mjr-meta-eval' waits before checking for the result of an octave computation.
-If a computation takes longer, then `mjr-meta-eval' will likely return an empty string or nil; however, the correct value will eventually show up in the
-inferior octave process buffer.  Values less than 1 result in a 1s timeout."
+(defcustom mjr-meta-eval-octave-exec-timeout 10
+  "The number of seconds `mjr-meta-eval' waits for results to appaer.  Values less than 1 result in a 1s timeout."
+  :type 'integer
+  :group 'mjr-meta-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-meta-eval-octave-write-timeout 1
+  "The number of seconds `mjr-meta-eval' waits for Octave to print the result once printing starts. Values less than 1 result in a 1s timeout."
   :type 'integer
   :group 'mjr-meta-eval)
 
@@ -179,20 +184,27 @@ Arguments:
       - In Lisp and Lisp adjacent modes, look for a sexp at the point (point should be on the opening paren or just after the closing paren).
       - In non-lisp modes, look a string not containing spaces.
       - If whatever is found doesn't look like a single integer, then the user is given the opportunity to edit it before evaluation.
- - EVAL-HOW: How to evaluate EVAL-STR.  Valid values are the following 6 keyword symbols:
-     - :int ..... Use `mjr-meta-eval-multibase-convert'
-     - :calc .... Like calling `quick-calc' (C-c * q)
-     - :elisp ... Like calling `eval-expression' (M-:)
-     - :lisp .... Like calling slime-interactive-eval (C-:) in a slime buffer
-                  Only available if SLIME has an active connection to a common Lisp repl (use `slime' to start one)
-     - :maxima .. Use maxima
-                  Only available if the maxima package is available.
-                  If maxima is not already running, then a maxima session will be started automatically.
-                  Sets the maxima session display2d preference to false.
-     - :octave .. Use octave.
-                  Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
-                  Evaluation time is limited to `mjr-meta-eval-octave-timeout' seconds.
-                  Sets the octave session output format setting to compact.
+ - EVAL-HOW: How to evaluate EVAL-STR.  Valid values are the following keyword symbols:
+     - Well tested methods:
+        - :int ..... Use `mjr-meta-eval-multibase-convert'
+        - :calc .... Like calling `quick-calc' (C-c * q)
+        - :elisp ... Like calling `eval-expression' (M-:)
+        - :lisp .... Like calling slime-interactive-eval (C-:) in a slime buffer
+                     Only available if SLIME has an active connection to a common Lisp repl (use `slime' to start one)
+        - :maxima .. Use maxima
+                     Only available if the maxima package is available.
+                     If maxima is not already running, then a maxima session will be started automatically.
+                     Sets the maxima session display2d preference to false.
+     - Experimental methos:
+        - :octave .. Use octave.
+                     Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
+                     Evaluation time is limited to `mjr-meta-eval-octave-exec-timeout' seconds.
+                     Sets the octave session output format setting to compact.
+                     The method for waiting on Octave to complete the computation is a bit of a hack.
+        - :r ....... Use R.
+                     Only available if the ESS package is installed.  
+                     A session will be started if one is not already running.  Multiple R sessions generate a prompt.
+                     The methods for session startup and tracking are likely to change in the future.  the ESS package is required.
    If EVAL-STR contains a single integer, as detected by `mjr-meta-eval-multibase-convert', then evaluation method is set to :int regardless of the
    value of EVAL-HOW -- in interactive mode the user is not prompted to provide a value for EVAL-HOW in this case.
    If EVAL-HOW is missing, possible in non-interactive mode, then it is set to :calc if it is not being ignored because EVAL-STR contains a single integer.
@@ -215,6 +227,8 @@ Arguments:
                                                     (list '("lisp"   ?l "Evaluate as Common lisp code via SLIME")))
                                                   (when (and (functionp 'maxima-single-string-wait) (functionp 'maxima-last-output-noprompt))
                                                     (list '("maxima" ?m "Evaluate in maxima session")))
+                                                  (when (and (functionp 'ess-force-buffer-current) (functionp 'ess-command))
+                                                    (list '("r" ?m "Evaluate in R session")))
                                                   (when (and (boundp 'inferior-octave-process) (process-live-p inferior-octave-process))
                                                     (list '("octave" ?o "Evaluate in octave session"))))))
                              (intern (concat ":" (if (and mjr-meta-eval-use-ido (and (boundp 'ido-everywhere) ido-everywhere))
@@ -233,13 +247,25 @@ Arguments:
                                       (string-clean-whitespace (maxima-last-output-noprompt))))
                      (:lisp   (cl-second (slime-eval `(swank:eval-and-grab-output ,eval-str))))
                      (:octave (let ((tmp-buf (generate-new-buffer "*temp*" 't)))
-                                    (with-current-buffer inferior-octave-buffer
-                                      (comint-redirect-send-command (concat "format compact; " eval-str) tmp-buf nil t)
-                                      (sleep-for (max 1 mjr-meta-eval-octave-timeout))
-                                      (let ((res (with-current-buffer tmp-buf
-                                                   (buffer-string))))
-                                        (kill-buffer tmp-buf)
-                                        res))))
+                                (with-current-buffer inferior-octave-buffer
+                                  (comint-redirect-send-command (concat "format compact; " eval-str) tmp-buf nil t)
+                                  (cl-loop for i from (* mjr-meta-eval-octave-exec-timeout 10) downto 0
+                                           when (zerop i)
+                                           do (error "Evaluation failed")
+                                           until (< 1 (with-current-buffer tmp-buf (point-max)))
+                                           do (message "Waiting for Octave... %d" i)
+                                           do (sleep-for 0.2))
+                                  (message "Waiting for Octave... Done!")
+                                  (sleep-for mjr-meta-eval-octave-write-timeout)
+                                  (prog1 (with-current-buffer tmp-buf
+                                           (buffer-substring-no-properties (point-min) (point-max)))
+                                    (kill-buffer tmp-buf)))))
+                     (:r      (with-temp-buffer
+                                (let ((ess-dialect "R"))
+                                  (ess-force-buffer-current)
+                                  (let ((ess-eval-visibly-p nil))
+                                    (ess-command eval-str (current-buffer)))
+                                    (buffer-string))))
                      (_        (error "mjr-meta-eval: Unknown value for eval-how: %s" eval-how)))))
     (if (not (stringp eval-res))
         (error "mjr-meta-eval: Something went wrong during evaluation!"))
