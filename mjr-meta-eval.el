@@ -228,7 +228,7 @@ Arguments:
                                                   (when (and (functionp 'maxima-single-string-wait) (functionp 'maxima-last-output-noprompt))
                                                     (list '("maxima" ?m "Evaluate in maxima session")))
                                                   (when (and (functionp 'ess-force-buffer-current) (functionp 'ess-command))
-                                                    (list '("r" ?m "Evaluate in R session")))
+                                                    (list '("r" ?r "Evaluate in R session")))
                                                   (when (and (boundp 'inferior-octave-process) (process-live-p inferior-octave-process))
                                                     (list '("octave" ?o "Evaluate in octave session"))))))
                              (intern (concat ":" (if (and mjr-meta-eval-use-ido (and (boundp 'ido-everywhere) ido-everywhere))
