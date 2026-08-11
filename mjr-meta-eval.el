@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.8
+;; Version:     1.9
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -238,7 +238,7 @@ Arguments:
                                                     (list '("r" ?r "Evaluate in R session")))
                                                   (when (and (boundp 'inferior-octave-process) (process-live-p inferior-octave-process))
                                                     (list '("octave" ?o "Evaluate in octave session"))))))
-                             (intern (concat ":" (if (and mjr-meta-eval-use-ido (and (boundp 'ido-everywhere) ido-everywhere))
+                             (intern (concat ":" (if (and mjr-meta-eval-use-ido (require 'ido nil :noerror))
                                                      (ido-completing-read "Eval how: " (mapcar #'car ev-meth))
                                                      (let ((read-answer-short t))
                                                        (read-answer "Eval how: " ev-meth))))))))))
