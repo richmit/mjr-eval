@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.1
+;; Version:     1.2
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -207,6 +207,7 @@ Arguments:
                      Undesired behavior: 
                       - If multiple R sessions are running, the user is prompted to choose one for each evaluation.
                       - Invalid R syntax can lead to a badly confused ESS process.
+                      - If R must be started the R buffer becomes visiable.
    If EVAL-STR contains a single integer, as detected by `mjr-meta-eval-multibase-convert', then evaluation method is set to :int regardless of the
    value of EVAL-HOW -- in interactive mode the user is not prompted to provide a value for EVAL-HOW in this case.
    If EVAL-HOW is missing, possible in non-interactive mode, then it is set to :calc if it is not being ignored because EVAL-STR contains a single integer.
@@ -263,8 +264,9 @@ Arguments:
                                            (buffer-substring-no-properties (point-min) (point-max)))
                                     (kill-buffer tmp-buf)))))
                      (:r      (with-temp-buffer
-                                (let ((ess-dialect "R"))
-                                  (ess-force-buffer-current))
+                                (eval (let ((ess-dialect "R"))
+                                        (ess-force-buffer-current))
+                                      nil)
                                 (let ((ess-eval-visibly-p nil))
                                   (ess-command eval-str (current-buffer)))
                                 (buffer-string)))
