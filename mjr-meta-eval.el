@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.0
+;; Version:     1.1
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -195,7 +195,7 @@ Arguments:
                      Only available if the maxima package is available.
                      If maxima is not already running, then a maxima session will be started automatically.
                      Sets the maxima session display2d preference to false.
-     - Experimental methos:
+     - Experimental methods:
         - :octave .. Use octave.
                      Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
                      Evaluation time is limited to `mjr-meta-eval-octave-exec-timeout' seconds.
@@ -203,8 +203,10 @@ Arguments:
                      The method for waiting on Octave to complete the computation is a bit of a hack.
         - :r ....... Use R.
                      Only available if the ESS package is installed.  
-                     A session will be started if one is not already running.  Multiple R sessions generate a prompt.
-                     The methods for session startup and tracking are likely to change in the future.  the ESS package is required.
+                     A session will be started if one is not already running.  
+                     Undesired behavior: 
+                      - If multiple R sessions are running, the user is prompted to choose one for each evaluation.
+                      - Invalid R syntax can lead to a badly confused ESS process.
    If EVAL-STR contains a single integer, as detected by `mjr-meta-eval-multibase-convert', then evaluation method is set to :int regardless of the
    value of EVAL-HOW -- in interactive mode the user is not prompted to provide a value for EVAL-HOW in this case.
    If EVAL-HOW is missing, possible in non-interactive mode, then it is set to :calc if it is not being ignored because EVAL-STR contains a single integer.
@@ -262,10 +264,10 @@ Arguments:
                                     (kill-buffer tmp-buf)))))
                      (:r      (with-temp-buffer
                                 (let ((ess-dialect "R"))
-                                  (ess-force-buffer-current)
-                                  (let ((ess-eval-visibly-p nil))
-                                    (ess-command eval-str (current-buffer)))
-                                    (buffer-string))))
+                                  (ess-force-buffer-current))
+                                (let ((ess-eval-visibly-p nil))
+                                  (ess-command eval-str (current-buffer)))
+                                (buffer-string)))
                      (_        (error "mjr-meta-eval: Unknown value for eval-how: %s" eval-how)))))
     (if (not (stringp eval-res))
         (error "mjr-meta-eval: Something went wrong during evaluation!"))
@@ -313,8 +315,10 @@ Arguments:
 ;; (mjr-meta-eval "sin(1)" :calc)
 ;; "0.0174524064373"
 ;; 
-;; (mjr-!meta-eval "(sin 1)" :elisp)
+;; (mjr-meta-eval "(sin 1)" :elisp)
 ;; "0.8414709848078965"
+;;
+;; (mjr-meta-eval "solve(matrix(c(1,2,3,4,5,6,7,8,10), nrow=3));" :r)
 
 (provide 'mjr-meta-eval)
 
