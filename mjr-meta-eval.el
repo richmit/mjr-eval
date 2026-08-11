@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.6
+;; Version:     1.7
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -175,7 +175,7 @@ Recognized integers:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun mjr-meta-eval (eval-str &optional eval-how)
-  "Evaluate the region or expression near the point using maxima, calc, elisp, or Lisp (via slime), put the result in the kill ring, and print it in a message.
+  "Evaluate the region or expression near the point using maxima, calc, elisp, R (via ESS), octave, or Lisp (via slime), and put the result in the kill ring.
 Arguments:
  - EVAL-STR: A string to evaluate.
    In interactive mode:
@@ -194,20 +194,24 @@ Arguments:
         - :maxima .. Use maxima
                      Only available if the maxima package is available.
                      If maxima is not already running, then a maxima session will be started automatically.
-                     Sets the maxima session display2d preference to false.
+                     Dubious behavior: 
+                      - Sets the maxima session display2d preference to false.
      - Experimental methods:
         - :octave .. Use octave.
                      Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
-                     Evaluation time is limited to `mjr-meta-eval-octave-exec-timeout' seconds.
-                     Sets the octave session output format setting to compact.
-                     The method for waiting on Octave to complete the computation is a bit of a hack.
+                     Evaluation time is limited to `mjr-meta-eval-octave-exec-timeout' seconds.  
+                     Once Octave starts I/O for the result it must complete it in `mjr-meta-eval-octave-write-timeout' seconds.
+                     Dubious behavior: 
+                      - Sets the octave session output format setting to compact.
+                     Undesired behavior: 
+                      - The method for waiting on Octave to complete the computation is a bit of a hack.
         - :r ....... Use R.
                      Only available if the ESS package is installed.  
                      A session will be started if one is not already running.  
                      Undesired behavior: 
                       - If multiple R sessions are running, the user is prompted to choose one for each evaluation.
                       - Invalid R syntax can lead to a badly confused ESS process.
-                      - If R must be started the R buffer becomes visiable.
+                      - If R must be started the R buffer becomes visible.
    If EVAL-STR contains a single integer, as detected by `mjr-meta-eval-multibase-convert', then evaluation method is set to :int regardless of the
    value of EVAL-HOW -- in interactive mode the user is not prompted to provide a value for EVAL-HOW in this case.
    If EVAL-HOW is missing, possible in non-interactive mode, then it is set to :calc if it is not being ignored because EVAL-STR contains a single integer.
@@ -257,7 +261,7 @@ Arguments:
                                            do (error "Evaluation failed")
                                            until (< 1 (with-current-buffer tmp-buf (point-max)))
                                            do (message "Waiting for Octave... %d" i)
-                                           do (sleep-for 0.2))
+                                           do (sleep-for 0.1))
                                   (message "Waiting for Octave... Done!")
                                   (sleep-for mjr-meta-eval-octave-write-timeout)
                                   (prog1 (with-current-buffer tmp-buf
