@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.7
+;; Version:     1.8
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -323,11 +323,11 @@ Arguments:
 ;; (mjr-meta-eval "(sin 1)" :elisp)
 ;; "0.8414709848078965"
 ;;
-;; (mjr-meta-eval "solve(matrix(c(1,2,3,4,5,6,7,8,10), nrow=3))" :r)
-;; "           [,1]       [,2] [,3]
-;; [1,] -0.6666667 -0.6666667    1
-;; [2,] -1.3333333  3.6666667   -2
-;; [3,]  1.0000000 -2.0000000    1"
+;; (mjr-meta-eval "solve(matrix(c(1,2,3,4,5,6,7,8,10), nrow=3, byrow=TRUE))" :r)
+;; "           [,1]      [,2] [,3]
+;; [1,] -0.6666667 -1.333333    1
+;; [2,] -0.6666667  3.666667   -2
+;; [3,]  1.0000000 -2.000000    1"
 
 ;; (mjr-install-mjr-packages :reinstall :git 'mjr-meta-eval)
 
