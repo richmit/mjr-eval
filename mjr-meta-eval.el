@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.4
+;; Version:     1.6
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -264,13 +264,11 @@ Arguments:
                                            (buffer-substring-no-properties (point-min) (point-max)))
                                     (kill-buffer tmp-buf)))))
                      (:r      (with-temp-buffer
-                                (eval (let ((ess-dialect "R"))
-                                        (ess-force-buffer-current))
-                                      nil)
-                                (eval (let ((ess-eval-visibly-p nil))
-                                        (ess-command eval-str (current-buffer)))
-                                      nil)
-                                (buffer-string)))
+                                (setq-local ess-dialect        "R"
+                                            ess-eval-visibly-p nil)
+                                        (ess-force-buffer-current)
+                                        (ess-command eval-str (current-buffer))
+                                (buffer-substring-no-properties (point-min) (point-max))))
                      (_        (error "mjr-meta-eval: Unknown value for eval-how: %s" eval-how)))))
     (if (not (stringp eval-res))
         (error "mjr-meta-eval: Something went wrong during evaluation!"))
