@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     1.9
+;; Version:     1.10
 ;; Keywords:    mjr-meta-eval
 ;; URL:         https://github.com/richmit/mjr-meta-eval
 
@@ -139,8 +139,10 @@ Recognized integers:
                                                  (list "^[[:space:]]*[oO]'\\([0-7]+\\)'[[:space:]]*$"                      "8#\\1"  "F77 BOZ"   )
                                                  (list "^[[:space:]]*[xX]'\\([0-9a-fA-F]+\\)'[[:space:]]*$"                "16#\\1" "F77 BOZ"   )
                                                  (list "^[[:space:]]*[zZ]'\\([0-9a-fA-F]+\\)'[[:space:]]*$"                "16#\\1" "F77 BOZ"   ))))
-              (calc-int-string (replace-regexp-in-string (cl-first int-pattern) (cl-second int-pattern)in-string)))
-    (mapconcat (lambda (x) (calc-eval (list calc-int-string 'calc-number-radix x))) '(10 16 2 8) (or separator " "))))
+              (calc-int-string (replace-regexp-in-string (cl-first int-pattern) (cl-second int-pattern) in-string)))
+    (concat (mapconcat (lambda (x) (calc-eval (list calc-int-string 'calc-number-radix x))) '(10 16 2 8) (or separator " "))
+            " " 
+            (char-to-string (string-to-number (calc-eval (list calc-int-string 'calc-number-radix 10)))))))
 
 ;; (let ((tmode "unit")) ;; "unit" "make"
 ;;   (dolist (test-case '(("0x12"        . "18 16#12 2#10010 8#22")
