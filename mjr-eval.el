@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.5
+;; Version:     2.6
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -96,27 +96,30 @@
 
 ;;; Code:
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-extract-eval-str-from-buffer ()
-  ""
+  "Get a string from the marked text in a buffer or ask the user for a string if nothing is marked."
   (or (and transient-mark-mode
            (region-active-p)
            (mark)
            (buffer-substring-no-properties (region-beginning) (region-end)))
       (read-string "Expression to evaluate: ")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-read-engine (list-or-alist-of-engines)
-  ""
+  "Prompt the user for an ENGINE from the given list."
   (intern (downcase (ido-completing-read "Eval how: " 
                                          (if (and (car list-or-alist-of-engines)
                                                   (symbolp (car list-or-alist-of-engines)))
                                              (mapcar #'symbol-name list-or-alist-of-engines)
                                              (mapcar (lambda (x) (symbol-name (car x))) list-or-alist-of-engines))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-format-result (from-func engine eval-str result-str)
-  ""
+  "Clean up evaluation results and produce a nice string for a message."
   (let ((msg ""))
     (when from-func
-      (setq msg (format "%s" from-func)))
+      (setq msg (string-remove-prefix "mjr-eval-" (format "%s" from-func))))
     (when engine
       (setq msg (string-trim (concat msg " " (format "%s" engine)))))
     (setq msg (string-trim (concat msg " eval")))
