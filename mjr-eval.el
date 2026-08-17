@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.4
+;; Version:     2.5
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -149,14 +149,14 @@
 ;;;###autoload
 (defcustom mjr-eval-org-ticker-engines '((:elisp          . (:language "emacs-lisp" :results "value code"      ))
                                          (:calc           . (:language "calc"       :results "value code"      ))
-                                         (:r              . (:language "R"          :results "value code"      ))
-                                         (:r-session      . (:language "R"          :results "value code"      ))
+                                         (:r              . (:language "R"          :results "output verbatum" ))
+                                         (:r-session      . (:language "R"          :results "output verbatum" ))
                                          (:octave         . (:language "octave"     :results "output verbatum" ))
                                          (:octave-session . (:language "octave"     :results "output verbatum" ))
                                          (:maxima         . (:language "maxima"     :results "output verbatum" ))
                                          (:ruby           . (:language "ruby"       :results "value code"      ))
                                          (:bash           . (:language "bash"       :results "output verbatum" ))
-                                         (:lisp           . (:language "lisp"       :results "value"           ))
+                                         (:lisp-session   . (:language "lisp"       :results "value"           )) ;; This uses SLIME!
                                          )
   "Engines aviable for `mjr-eval-org-ticker'."
   :type '(alist :key-type symbol :value-type (list (const :language) string (const :results) string))
