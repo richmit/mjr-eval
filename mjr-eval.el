@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.1
+;; Version:     2.2
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -159,7 +159,7 @@
                                          (:lisp           . (:language "lisp"       :results "value"           ))
                                          )
   "Engines aviable for `mjr-eval-org-ticker'."
-  :type '(alist :key-type symbol)
+  :type '(alist :key-type symbol :value-type (list (const :language) string (const :results) string))
   :group 'mjr-eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -507,11 +507,19 @@ Valid values for ENGINE:
                                    (:elisp            . (mjr-eval-internal         ?e "Evaluate as Emacs lisp code"))
                                    (:lisp-session     . (mjr-eval-external-session ?l "Evaluate as Common lisp code via SLIME"))
                                    (:maxima-session   . (mjr-eval-external-session ?m "Evaluate in maxima session"))
-                                   (:r                . (mjr-eval-org-ticker       ?r "Evaluate in R session"))
-                                   (:octave           . (mjr-eval-org-ticker       ?o "Evaluate in octave session")))
+                                   (:r-session        . (mjr-eval-org-ticker       ?r "Evaluate in R session"))
+                                   (:octave-session   . (mjr-eval-org-ticker       ?o "Evaluate in octave session")))
   "Engines available for `mjr-eval-meta-engines'."
-  :type '(alist :key-type symbol)
+  :type '(alist :key-type symbol :value-type (list symbol character string))
   :group 'mjr-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-eval-meta-use-ido nil
+  "Use `ido-completing-read' if non-NIL.  Otherwise use `read-answer'.
+`read-answer' provides a faster, but more terse user interface -- i.e. only one keystroke to select an evaluation method instead of two."
+  :type 'boolean
+  :group 'mjr-meta-eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
@@ -539,7 +547,7 @@ Arguments:
                  (if (mjr-eval-unsigned-integer eval-str)
                      (list eval-str :int)
                      (list eval-str
-                           (intern (if (and mjr-meta-eval-use-ido (require 'ido nil :noerror))
+                           (intern (if (and mjr-eval-meta-use-ido (require 'ido nil :noerror))
                                        (mjr-eval-util-read-engine mjr-eval-meta-engines)
                                        (let ((read-answer-short t))
                                          (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x))) mjr-eval-meta-engines)))))))))
