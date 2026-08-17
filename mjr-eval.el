@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.3
+;; Version:     2.4
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -549,10 +549,10 @@ Arguments:
                  (if (mjr-eval-unsigned-integer eval-str)
                      (list eval-str :int)
                      (list eval-str
-                           (intern (if (and mjr-eval-meta-use-ido (require 'ido nil :noerror))
-                                       (mjr-eval-util-read-engine mjr-eval-meta-engines)
-                                       (let ((read-answer-short t))
-                                         (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x))) mjr-eval-meta-engines)))))))))
+                           (if (and mjr-eval-meta-use-ido (require 'ido nil :noerror))
+                               (mjr-eval-util-read-engine mjr-eval-meta-engines)
+                               (let ((read-answer-short t))
+                                 (intern (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x))) mjr-eval-meta-engines)))))))))
   (let ((engine-info (cdr (assoc engine mjr-eval-meta-engines))))
     (if eval-str
         (if (mjr-eval-meta nil engine)
