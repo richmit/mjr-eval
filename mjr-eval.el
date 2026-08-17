@@ -490,7 +490,7 @@ Valid values for ENGINE:
                      (mjr-eval-util-read-engine '(:calc :elisp :int))))
   (if eval-str
       (let* ((raw-res (pcase engine
-                        (:int    (mjr-meta-eval-multibase-convert eval-str))
+                        (:int    (mjr-eval-unsigned-integer eval-str))
                         (:calc   (progn (require 'calc) (calc-eval eval-str)))
                         (:elisp  (format "%s" (eval (car (read-from-string eval-str)))))
                         (_        (error "mjr-eval-internal: Unknown value for ENGINE: %s" engine)))))
@@ -557,7 +557,7 @@ Arguments:
     (if eval-str
         (if (mjr-eval-meta nil engine)
             (funcall (car engine-info) eval-str engine)
-            (error "mjr-eval-meta: ENGINE (%s) is unavailable! engine!" engine))
+            (error "mjr-eval-meta: ENGINE (%s) is unavailable!" engine))
         (and engine-info (funcall (car engine-info) nil engine) engine))))
 
 ;; (mjr-eval-meta "inv([1,2,3;4,5,6;7,8,10])" :octave)
