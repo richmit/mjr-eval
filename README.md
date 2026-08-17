@@ -1,43 +1,69 @@
-# mjr-meta-eval
+# mjr-eval
 
-<!-- SHELLO: ~/core/codeBits/bin/emacs_package_com_to_md.rb mjr-meta-eval.el -->
- See the README: https://github.com/richmit/mjr-meta-eval/
+<!-- SHELLO: ~/core/codeBits/bin/emacs_package_com_to_md.rb mjr-eval.el -->
+ See the README: https://github.com/richmit/mjr-eval/
 
- The Emacs function `mjr-meta-eval` provides an easy way to evaluate an expression in a buffer and place the results on the kill ring.  My primary use case
- is the evaluation of mathematical expressions embedded in source code.
+ Emacs by itself provides some solid computational support in the form of Emacs Lisp and `calc`.  Emacs also provides fantastic interfaces to many external
+ computational tools (R, Octave, Matlab, Maple, Maxima, Julia, GAP, Macaulay2, etc...).  While many of these packages are quite powerful, they frequently
+ don't provide `quick-calc` functionality -- and when they do it is with wildly different user interfaces.
 
- The expression may be evaluated in several different ways:
+ In the worst cases, users are forced to use a flow something like this:
+  - Highlight some equation in the current buffer
+  - Switch to a computational mode
+  - Paste the equation
+  - Adjust the syntax to match the tool & evaluate the result
+  - Highlight the result
+  - Switch back to the original buffer
+  - Paste the result
+  
+ This package aims to replace the ghastly practice described above with an efficient and uniform user interface:
+   - One key binding to access all the computational tools.
+   - Helps to identify buffer contents for evaluation.
+   - Provides a fast way for the user to select which computational tool to use (just a single key press)
+   - Evaluates the expression and both prints the results and places them on the kill ring.
 
-   - :int ..... Uses `mjr-meta-eval-multibase-convert`
-   - :calc .... like calling `quick-calc` (C-c * q)
-   - :elisp ... like calling `eval-expression` (M-:)
-   - :lisp .... Uses common lisp via SLIME
-   - :maxima .. Uses maxima 
-   - :octave .. Uses octave 
+ This package uses a couple terms:
+   - ENGINE to mean a computational tools (i.e. octave is an engine as is `calc`).  
+   - HANDLER is a function that takes a string to evaluate and a symbol identifying an ENGINE.
 
- The expression can be identified by highlighting it in the buffer.  Alternately `mjr-meta-eval` will look around the point for something to evaluate.  In
- lisp and lisp adjacent modes, look for a sexp at the point.  In non-lisp modes, look a string not containing spaces.  Whenever `mjr-meta-eval` makes a
- guess about what to evaluate, it always gives the user the option to edit the expression before evaluation.
+ This package provides four primary HANDLERs and a single dispatch function that can be used as an interface to them all.  The four HANDLERs are:
 
- If the string to be evaluated looks like a single integer, then :int evaluation is always used.  Integers in many common programming languages can be
- recognized:
+   `mjr-eval-org-ticker`
+      Use `org-mode` babel for all computations.
+        - Pro: Keeps a history of all computations preformed during the session
+        - Con: Requires a working `org-mode` configuration and babel configuration for each language used
+        - Con: Babel support for some engines may be limited.
+    
+   `mjr-eval-external-session`
+      Use an external tool via the author's favorite Emacs mode for that tool
+        - Pro: Uses interactive modes that are very popular
+        - Con: Not everybody is going to like the choice of which mode was used to provide support
+        - Pro: For users already running sessions with these tools, this packge provides an alternate interface for interacting with sessions.
+        - Con: Somewhat flaky support for :octave & :r
+    
+   `mjr-eval-internal`
+      Use internal Emacs facilities
+    
+        - Pro: Requires zero configuration
+        - Pro: Lowest latency results
+        - Con: Fewer & less powerful engines
+    
+   `mjr-eval-external-one`
+      Use an external tool by directly calling the binary
+    
+        - Pro: Super simple and very robust
+        - Con: High latency
+        - Pro/Con: No session support (which also means no session to crash or freeze)
 
-   - Unadorned, decimal integers in most programming languages.
-   - C/C++
-     - Integer suffixes (unsigned * long) are supported
-     - Integer prefixes for HEX, BIN, & OCT are also supported
-   - BOZ (BIN, OCT, & HEX) integer literals in F77 & F90.
-   - LISP/ELISP read macros for (BIN, OCT, DEC, & HEX)
-   - Native Emacs CALC syntax.
-   - Numeric string escape sequences in C++ and Java."
+ While all of the HANDLERs can be used interactively, it is probably more convenient to access them via the dispatch function `mjr-eval-meta`.  This
+ function has a more sophisticated user interface and allows the user to customize what tools are available.
 
- I normally bind `mjr-meta-eval` to "ESC ESC :" -- that is hit escape twice and then colon.  I think of `mjr-meta-eval` as an extended version of
- `eval-expression` that is normally bound to "ESC :".
+ I normally bind `mjr-eval-meta` to "ESC ESC :".  I think of `mjr-eval-meta` as an extended version of `eval-expression` that is normally bound to "ESC :".
 
-      (keymap-global-set "ESC ESC :"   'mjr-meta-eval)
+      (keymap-global-set "ESC ESC :" 'mjr-eval-meta)
             
- The easiest way to install mjr-meta-eval is to pull it directly from github:
+ The easiest way to install mjr-eval is to pull it directly from github:
 
-      (package-vc-install (list 'mjr-meta-eval
-                           :url "https://github.com/richmit/mjr-meta-eval"
+      (package-vc-install (list 'mjr-eval
+                           :url "https://github.com/richmit/mjr-eval"
                            :rev 'newest))
