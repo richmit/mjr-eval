@@ -285,6 +285,8 @@ Valid values for ENGINE:
                       If maxima is not already running, then a maxima session will be started automatically.
                       Dubious behavior: 
                        - Sets the maxima session display2d preference to false.
+                      Undesired behavior: 
+                       - When a new maxima session is started, it prints a lot of junk
  - :octave-session .. Use octave via `octave-mode' shipped with octave
                       Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
                       Evaluation time is limited to `mjr-eval-external-session-octave-exec-timeout' seconds.  
