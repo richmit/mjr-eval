@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.14
+;; Version:     2.15
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -70,7 +70,7 @@
 ;;    - Pro: Lowest latency results
 ;;    - Con: Fewer & less powerful engines
 ;;    
-;;  - `mjr-eval-external-one'-- Use an external tool by directly calling the binary (TODO: Not yet available)
+;;  - `mjr-eval-external-one'-- Use an external tool by directly calling the binary
 ;;    - Pro: Super simple and very robust
 ;;    - Con: High latency
 ;;    - Pro/Con: No session support (which also means no session to crash or freeze)
@@ -499,6 +499,90 @@ Valid values for ENGINE:
           (when (eq engine :calc)
             (unless (require 'calc nil :noerror)
               "mjr-eval-internal: ENGINE (:calc) not available! calc-mode could not be loaded.")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-eval-external-one-args '((:bash   . ("-c" nil))
+                                      (:julia  . ("--banner=no" "--color=no" "-E" nil))
+                                      (:octave . ("--no-gui"  "--no-window-system" "--quiet" "--no-history" "-e" nil))
+                                      (:r      . ("--no-save" "--no-restore" "--no-site-file" "--no-init-file" "--no-environ" "--no-echo" "--quiet" "-e" nil))
+                                      (:ruby   . ("-e" nil))
+                                      (:maxima . ("--very-quiet" "-r" nil))
+                                      (:sbcl   . ("--noinform" "--non-interactive" "--eval" nil))
+                                      (:python . ("-u" "-c" nil))
+                                      (:sh     . ("-c" nil)))
+  "Command line arguments for external tools when called by `mjr-eval-external'."
+  :type '(alist :key-type symbol :value-type (repeat (choice (const nil) string)))
+  :group 'mjr-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-eval-external-one-cmds nil
+  "Executable files for external tools when called by `mjr-eval-external'."
+  :type '(alist :key-type symbol string)
+  :group 'mjr-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defun mjr-eval-external-one (eval-str engine)
+  "Evaluate EVAL-STR by passing it as a command line argument to an external too."
+  (interactive (list (mjr-eval-util-extract-eval-str-from-buffer) 
+                     (mjr-eval-util-read-engine mjr-eval-external-one-cmds)))
+  (if eval-str
+      (if-let ((engine-err (mjr-eval-external-one nil engine)))
+          (error engine-err)
+        (let ((cmd (cdr (assoc engine mjr-eval-external-one-cmds)))
+              (arg (cdr (assoc engine mjr-eval-external-one-args))))
+          (with-temp-buffer
+            (let* ((expanded-args (cl-substitute eval-str nil arg))
+                   (proces-return (apply #'call-process cmd nil t nil expanded-args)))
+              (unless proces-return
+                (error "mjr-eval-external-one: Failed to run process!"))
+              (let* ((proces-output (buffer-substring-no-properties (point-min) (point-max)))
+                     (pretty-output (string-trim-right proces-output)))
+                (if (or (string-empty-p pretty-output) (string-match-p "^[[:space:]\n]*$" pretty-output))
+                    (message "mjr-eval-external-one: Process printed no result with exit code %s." proces-return)
+                    (progn (if (string-match "[\n\r]" pretty-output)
+                               (message "mjr-eval-external-one: %s => \n%s" eval-str pretty-output)
+                               (message "mjr-eval-external-one: %s => %s" eval-str pretty-output))
+                           (kill-new pretty-output)
+                           pretty-output)))))))
+      (or (unless (symbolp engine)
+            (format "mjr-eval-external-one: ENGINE (%S) is not a symbol!" engine))
+          (let ((cmd-cons (assoc engine mjr-eval-external-one-cmds)))
+            (or (unless cmd-cons
+                  (format "mjr-eval-external-one: ENGINE (%s) missing in `mjr-eval-external-one-cmds'!" engine))
+                (let ((cmd (cdr cmd-cons)))
+                  (or (unless cmd
+                        (format "mjr-eval-external-one: Command is NIL for ENGINE (%s)!" engine))
+                      (unless (stringp cmd)
+                        (format "mjr-eval-external-one: Command (%s) is not a string for ENGINE (%s)!" cmd engine))
+                      (unless (file-exists-p cmd)
+                        (format "mjr-eval-external-one: Command file for ENGINE (%s) is missing: '%s'!" engine cmd))
+                      (let ((arg-cons (assoc engine mjr-eval-external-one-args)))
+                        (or (unless arg-cons
+                              (format "mjr-eval-external-one: ENGINE (%s) missing in `mjr-eval-external-one-args'!" engine))
+                            (let ((arg (cdr arg-cons)))
+                              (or (unless arg
+                                    (format "mjr-eval-external-one: Argument template is NIL for ENGINE (%s)!" engine))
+                                  (unless (listp arg)
+                                    (format "mjr-eval-external-one: Argument template (%s) is not a list for ENGINE (%s)!" arg engine))
+                                  (unless (cl-every (lambda (x) (or (null x) (stringp x))) arg)
+                                    (format "mjr-eval-external-one: Argument template (%s) has non-string/nil elements for ENGINE (%s)!" arg engine))
+                                  (unless (member nil arg)
+                                    (format "mjr-eval-external-one: Argument template (%s) is missing code substitution element for ENGINE (%s)!" arg engine)))))))))))))
+
+;; (mjr-eval-external-one "1+2" :julia)
+;; "3"
+;; 
+;; (mjr-eval-external-one "1+2" :octave)
+;; "ans = 3"
+;; 
+;; (mjr-eval-external-one "1+2" :ruby)
+;; "mjr-eval-external-one: Process printed no result with exit code 0."
+;; 
+;; (mjr-eval-external-one "puts(1+2)" :ruby)
+;; "3"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
