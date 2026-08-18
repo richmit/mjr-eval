@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.12
+;; Version:     2.14
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -201,7 +201,6 @@ Engine configurations are in `mjr-eval-org-ticker-engines'.
 An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps a history of all calculations."
   (interactive (list (mjr-eval-util-extract-eval-str-from-buffer) 
                      (mjr-eval-util-read-engine mjr-eval-org-ticker-engines)))
-  (require 'org)
   (let* ((engine-spec (cdr (assoc engine mjr-eval-org-ticker-engines)))
          (language    (plist-get engine-spec :language))
          (results     (plist-get engine-spec :results))
@@ -240,6 +239,8 @@ An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps 
               (format "mjr-eval-org-ticker: ENGINE (%s) missing from mjr-eval-org-ticker-engines!" engine))
             (unless (plistp engine-spec)
               (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! Not a plist." engine))
+            (unless (require 'org nil :noerror)
+              (format "mjr-eval-org-ticker: ENGINE (%s) unavailable -- unable to load org-mode!" engine))
             (unless (featurep 'org)
               (format "mjr-eval-org-ticker: ENGINE (%s) unavailable -- org-mode not loaded!" engine))
             (unless language
@@ -367,7 +368,9 @@ Valid values for ENGINE:
                                "mjr-eval-external-session: ENGINE (:r-session) not available! ESS could not be loaded.")
                              (unless (and (functionp 'ess-force-buffer-current) (functionp 'ess-command))
                                "mjr-eval-external-session: ENGINE (:r-session) not available! ESS not loaded.")))
-        (:octave-session (or (unless (boundp 'inferior-octave-process)
+        (:octave-session (or (unless (require 'octave nil :noerror)
+                               "mjr-eval-external-session: ENGINE (:maxima-session) not available! octave-mode could not be loaded.")
+                             (unless (boundp 'inferior-octave-process)
                                "mjr-eval-external-session: ENGINE (:octave-session) not available! octave-mode not loaded.")
                              (unless (process-live-p inferior-octave-process)
                                "mjr-eval-external-session: ENGINE (:octave-session) not available! Inferior octave process not running")))
