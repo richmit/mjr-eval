@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.7
+;; Version:     2.9
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -70,7 +70,7 @@
 ;;    - Pro: Lowest latency results
 ;;    - Con: Fewer & less powerful engines
 ;;    
-;;  - `mjr-eval-external-one'-- Use an external tool by directly calling the binary
+;;  - `mjr-eval-external-one'-- Use an external tool by directly calling the binary (TODO: Not yet available)
 ;;    - Pro: Super simple and very robust
 ;;    - Con: High latency
 ;;    - Pro/Con: No session support (which also means no session to crash or freeze)
@@ -193,55 +193,63 @@ If non-NIL only the contents of the RESULTS block will be included."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun mjr-eval-org-ticker (eval-str engine)
-  "Evaluate a EVAL-STR in the given ENGINE with `org-mode'.
+  "Evaluate a EVAL-STR in the given ENGINE with `org-mode'. The result is returned as a string, printed, and placed on the kill ring.
 
-When run interactively a value for ENGINE is queried from the engines listed in `mjr-eval-org-ticker-engines'.
-When run non- interactively the ENGINE must be a symbol listed in `mjr-eval-org-ticker-engines'.
+When EVAL-STR is NIL, return a error message string if ENGINE is NOT aviable.
 
-An engine spec is a plist that contains :language & :results values.
-If the :results property is missing or NIL, then \"value\" is used.
-
-The result is returned as a string, printed, and placed on the kill ring.
-
+Engine configurations are in `mjr-eval-org-ticker-engines'.
 An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps a history of all calculations."
   (interactive (list (mjr-eval-util-extract-eval-str-from-buffer) 
                      (mjr-eval-util-read-engine mjr-eval-org-ticker-engines)))
   (require 'org)
-  ;; Need to  add checks for arguments (string is string engine is OK)
-  (if eval-str
-      (let* ((engine-spec (cdr (assoc engine mjr-eval-org-ticker-engines)))
-             (language    (plist-get engine-spec :language ))
-             (results     (or (plist-get engine-spec :results) "value"))
-             (session     (if (string-match-p "-session$" (symbol-name engine)) " :session" "")))
-        (with-current-buffer (get-buffer-create mjr-eval-org-ticker-buffer-name)
-          (org-mode)
-          (goto-char (point-max))
-          (insert (format "\n\n#+NAME: oc-%d\n" (point)))
-          (insert (format "#+BEGIN_SRC %s%s :results %s :exports both\n" language session results))
-          (let ((loc-soc (point)))
-            (insert eval-str)
-            (insert "\n#+END_SRC\n")
-            (let ((loc-eob (point)))
-              (goto-char loc-soc)
-              (mjr-org-babel-execute-src-block)
-              (let* ((raw-res (buffer-substring-no-properties loc-eob (point-max)))
-                     (prt-res raw-res))
-                (when mjr-eval-org-ticker-message-strip
-                  (mapc (lambda (re) (setq prt-res (replace-regexp-in-string re "" prt-res)))
-                        '("^#\\+RESULTS:.*$"
-                          "^#\\+end_example[[:space:]]*$"
-                          "^#\\+begin_example[[:space:]]*$"
-                          "^#\\+end_src.*$"
-                          "^#\\+begin_src.*$"
-                          "^[[:blank:]]*[\n\r]+"
-                          "[[:blank:]\n\r]+\\'")))
-                (message (mjr-eval-util-format-result 'mjr-eval-org-ticker engine eval-str prt-res))
-                (kill-new (if mjr-eval-org-ticker-kill-strip prt-res raw-res))
-                raw-res)))))
-      (when (when-let ((engine-spec (cdr (assoc engine mjr-eval-org-ticker-engines))))
-              (and (featurep 'org) 
-                   (featurep (intern (concat "ob-" (plist-get engine-spec :language))))))
-        engine)))
+  (let* ((engine-spec (cdr (assoc engine mjr-eval-org-ticker-engines)))
+         (language    (plist-get engine-spec :language))
+         (results     (plist-get engine-spec :results))
+         (session     (if (string-match-p "-session$" (format "%s" engine)) " :session" "")))
+    (if eval-str
+        (if-let ((invalid-enginep (mjr-eval-org-ticker nil engine)))
+            (error invalid-enginep)
+          (with-current-buffer (get-buffer-create mjr-eval-org-ticker-buffer-name)
+            (org-mode)
+            (goto-char (point-max))
+            (insert (format "\n\n#+NAME: oc-%d\n" (point)))
+            (insert (format "#+BEGIN_SRC %s%s :results %s :exports both\n" language session results))
+            (let ((loc-soc (point)))
+              (insert eval-str)
+              (insert "\n#+END_SRC\n")
+              (let ((loc-eob (point)))
+                (goto-char loc-soc)
+                (mjr-org-babel-execute-src-block)
+                (let* ((raw-res (buffer-substring-no-properties loc-eob (point-max)))
+                       (prt-res raw-res))
+                  (when mjr-eval-org-ticker-message-strip
+                    (mapc (lambda (re) (setq prt-res (replace-regexp-in-string re "" prt-res)))
+                          '("^#\\+RESULTS:.*$"
+                            "^#\\+end_example[[:space:]]*$"
+                            "^#\\+begin_example[[:space:]]*$"
+                            "^#\\+end_src.*$"
+                            "^#\\+begin_src.*$"
+                            "^[[:blank:]]*[\n\r]+"
+                            "[[:blank:]\n\r]+\\'")))
+                  (message (mjr-eval-util-format-result 'mjr-eval-org-ticker engine eval-str prt-res))
+                  (kill-new (if mjr-eval-org-ticker-kill-strip prt-res raw-res))
+                  raw-res)))))
+        (or (unless (symbolp engine)
+              (format "mjr-eval-org-ticker: ENGINE (%s) is must be a symbol!" engine))
+            (unless engine-spec
+              (format "mjr-eval-org-ticker: ENGINE (%s) missing from mjr-eval-org-ticker-engines!" engine))
+            (unless (plistp engine-spec)
+              (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! Not a plist." engine))
+            (unless (featurep 'org)
+              (format "mjr-eval-org-ticker: ENGINE (%s) unavaliable -- org-mode not loaded!" engine))
+            (unless language
+              (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! :language must be present and non-NIL." engine))
+            (unless (stringp results)
+              (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! :results must be a string." engine))
+            (unless (stringp language)
+              (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! :language must be a string." engine))
+            (unless (featurep (intern (concat "ob-" language)))
+              (format "mjr-eval-org-ticker: ENGINE (%s) unavaliable -- org-mode babel support missing!"))))))
 
 ;; (progn
 ;;   (mjr-eval-org-ticker "(* 10 323)" :elisp)
@@ -273,11 +281,9 @@ An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun mjr-eval-external-session (eval-str engine)
-  "Evaluate a EVAL-STR in the given ENGINE with `org-mode'.
+  "Evaluate a EVAL-STR in the given ENGINE via an inferior process mode.  The result is returned as a string, printed, and placed on the kill ring.
 
-When EVAL-STR is NIL, return non-NIL if the ENGINE is aviable.
-
-The result is returned as a string, printed, and placed on the kill ring.
+When EVAL-STR is NIL, return a error message string if ENGINE is NOT aviable.
 
 This function directly interacts with the a common interactive mode associated with the ENGINE.
 
@@ -314,55 +320,58 @@ Valid values for ENGINE:
                          (error "mjr-eval-external-session: No engines available!"))
                        (mjr-eval-util-read-engine engine-list))))
   (if eval-str
-      (let* ((raw-res (pcase engine
-                        (:lisp-session   
-                         (progn (unless (mjr-eval-external-session nil engine)
-                                  (error "mjr-eval-external-session: Lisp is not available!  Insure `slime' is installed and properly configured!"))
-                                (cl-second (slime-eval `(swank:eval-and-grab-output ,eval-str)))))
-                        (:maxima-session 
-                         (progn (unless (mjr-eval-external-session nil engine)
-                                  (error "mjr-eval-external-session: Maxima is not available!  Insure `maxima-mode' is installed and properly configured!"))
-                                (require 'maxima)
-                                (maxima-single-string-wait (concat "display2d:false$ " eval-str))
-                                (string-clean-whitespace (maxima-last-output-noprompt))))
-                        (:octave-session
-                         (progn (unless (mjr-eval-external-session nil engine)
-                                  (error "mjr-eval-external-session: Octave is not available!  Insure an active octave session is running in `octave-mode' (try `run-octave').!"))
-                                (let ((tmp-buf (generate-new-buffer "*temp*" 't)))
-                                  (with-current-buffer inferior-octave-buffer
-                                    (comint-redirect-send-command (concat "format compact; " eval-str) tmp-buf nil t)
-                                    (cl-loop for i from (* mjr-eval-external-session-octave-exec-timeout 10) downto 0
-                                             when (zerop i)
-                                             do (error "mjr-eval-external-session: Evaluation failed")
-                                             until (< 1 (with-current-buffer tmp-buf (point-max)))
-                                             do (message "Waiting for Octave... %d" i)
-                                             do (sleep-for 0.1))
-                                    (message "mjr-eval-external-session: Waiting for Octave... Done!")
-                                    (sleep-for mjr-eval-external-session-octave-write-timeout)
-                                    (prog1 (with-current-buffer tmp-buf
-                                             (buffer-substring-no-properties (point-min) (point-max)))
-                                      (kill-buffer tmp-buf))))))
-                        (:r-session       
-                         (progn (unless (mjr-eval-external-session nil engine)
-                                  (error "mjr-eval-external-session: R is not available!  Insure `ess' is installed and properly configured!"))
-                                (require 'ess)                                        
-                                (with-temp-buffer
-                                  (setq-local ess-dialect        "R"
-                                              ess-eval-visibly-p nil)
-                                  (ess-force-buffer-current)
-                                  (ess-command eval-str (current-buffer))
-                                  (buffer-substring-no-properties (point-min) (point-max)))))
-                        (_ (error "mjr-eval-external-session: Unknown value for engine: %s" engine)))))
-        (unless (stringp raw-res)
-          (error "mjr-eval-external-session: Something went wrong during evaluation!"))
-        (let ((prt-res (string-trim-right raw-res)))
-          (message (mjr-eval-util-format-result 'mjr-eval-external-session engine eval-str prt-res))
-          (kill-new prt-res)
-          raw-res))
-      (cond  ((and (eq engine :lisp-session)   (functionp 'slime-eval-save) (functionp 'slime-interactive-eval))                :lisp-session)
-             ((and (eq engine :maxima-session) (functionp 'maxima-single-string-wait) (functionp 'maxima-last-output-noprompt)) :maxima-session)
-             ((and (eq engine :r-session)      (functionp 'ess-force-buffer-current) (functionp 'ess-command))                  :r-session)
-             ((and (eq engine :octave-session) (boundp 'inferior-octave-process) (process-live-p inferior-octave-process))      :octave-session))))
+      (if-let ((invalid-enginep (mjr-eval-external-session nil engine)))
+          (error invalid-enginep)
+        (let* ((raw-res (pcase engine
+                          (:lisp-session   (cl-second (slime-eval `(swank:eval-and-grab-output ,eval-str))))
+                          (:maxima-session (progn (maxima-single-string-wait (concat "display2d:false$ " eval-str))
+                                                  (string-clean-whitespace (maxima-last-output-noprompt))))
+                          (:octave-session (let ((tmp-buf (generate-new-buffer "*temp*" 't)))
+                                             (with-current-buffer inferior-octave-buffer
+                                               (comint-redirect-send-command (concat "format compact; " eval-str) tmp-buf nil t)
+                                               (cl-loop for i from (* mjr-eval-external-session-octave-exec-timeout 10) downto 0
+                                                        when (zerop i)
+                                                        do (error "mjr-eval-external-session: Evaluation failed")
+                                                        until (< 1 (with-current-buffer tmp-buf (point-max)))
+                                                        do (message "Waiting for Octave... %d" i)
+                                                        do (sleep-for 0.1))
+                                               (message "mjr-eval-external-session: Waiting for Octave... Done!")
+                                               (sleep-for mjr-eval-external-session-octave-write-timeout)
+                                               (prog1 (with-current-buffer tmp-buf
+                                                        (buffer-substring-no-properties (point-min) (point-max)))
+                                                 (kill-buffer tmp-buf)))))
+                          (:r-session      (with-temp-buffer
+                                             (setq-local ess-dialect        "R"
+                                                         ess-eval-visibly-p nil)
+                                             (ess-force-buffer-current)
+                                             (ess-command eval-str (current-buffer))
+                                             (buffer-substring-no-properties (point-min) (point-max)))))))
+          (unless (stringp raw-res)
+            (error "mjr-eval-external-session: Something went wrong during evaluation!"))
+          (let ((prt-res (string-trim-right raw-res)))
+            (message (mjr-eval-util-format-result 'mjr-eval-external-session engine eval-str prt-res))
+            (kill-new prt-res)
+            raw-res)))
+      (pcase engine
+        (:lisp-session   (or (unless (require 'slime nil :noerror)
+                               "mjr-eval-external-session: ENGINE (:lisp-session) not available! SLIME could not be loaded.")
+                             (unless (and (functionp 'slime-eval-save) (functionp 'slime-interactive-eval))
+                               "mjr-eval-external-session: ENGINE (:lisp-session) not available! SLIME not loaded.")
+                             (unless (slime-current-connection)
+                               "mjr-eval-external-session: ENGINE (:lisp-session) not available! No SLIME connection.")))
+        (:maxima-session (or (unless (require 'maxima nil :noerror)
+                               "mjr-eval-external-session: ENGINE (:maxima-session) not available! maxima could not be loaded.")
+                             (unless (and (functionp 'maxima-single-string-wait) (functionp 'maxima-last-output-noprompt))
+                               "mjr-eval-external-session: ENGINE (:maxima-session) not available! maxima mode not loaded.")))
+        (:r-session      (or (unless (require 'ess nil :noerror)
+                               "mjr-eval-external-session: ENGINE (:r-session) not available! ESS could not be loaded.")
+                             (unless (and (functionp 'ess-force-buffer-current) (functionp 'ess-command))
+                               "mjr-eval-external-session: ENGINE (:r-session) not available! ESS not loaded.")))
+        (:octave-session (or (unless (boundp 'inferior-octave-process)
+                               "mjr-eval-external-session: ENGINE (:octave-session) not available! octave-mode not loaded.")
+                             (unless (process-live-p inferior-octave-process)
+                               "mjr-eval-external-session: ENGINE (:octave-session) not available! Inferior octave process not running")))
+        (_               (format "mjr-eval-external-session: ENGINE (%s) Unsupported value!" engine)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
@@ -459,53 +468,34 @@ Recognized programming language syntax for integers:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun mjr-eval-internal (eval-str &optional engine)
-  "Evaluate a EVAL-STR in the given ENGINE with `org-mode'.
+  "Evaluate a EVAL-STR in the given ENGINE. The result is returned as a string, printed, and placed on the kill ring.
 
-When EVAL-STR is NIL, return non-NIL if the ENGINE is aviable.
-
-The result is returned as a string, printed, and placed on the kill ring.
-
-This function directly interacts with the a common interactive mode associated with the ENGINE.
+When EVAL-STR is NIL, return a error message string if ENGINE is NOT aviable.
 
 Valid values for ENGINE:
- - :lisp .... Use Common LISP via `slime'
-              Very similar to `slime-interactive-eval' (C-:) in a slime buffer
-              Only available if SLIME has an active connection to a common Lisp repl (use `slime' to start one)
- - :maxima .. Use maxima via the `maxima-mode' shipped with maxima.
-              Only available if the maxima package is available.
-              If maxima is not already running, then a maxima session will be started automatically.
-              Dubious behavior: 
-               - Sets the maxima session display2d preference to false.
- - :octave .. Use octave via `octave-mode' shipped with octave
-              Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
-              Evaluation time is limited to `mjr-eval-external-session-octave-exec-timeout' seconds.  
-              Once Octave starts I/O for the result it must complete it in `mjr-meta-eval-octave-write-timeout' seconds.
-              Dubious behavior: 
-               - Sets the octave session output format setting to compact.
-              Undesired behavior: 
-               - The method for waiting on Octave to complete the computation is a bit of a hack.
- - :r ....... Use R via `ess-mode'
-              Only available if the ESS package is installed.  
-              A session will be started if one is not already running.  
-              Undesired behavior: 
-               - If multiple R sessions are running, the user is prompted to choose one for each evaluation.
-               - Invalid R syntax can lead to a badly confused ESS process.
-               - If R must be started the R buffer becomes visible."
+ - :int ..... Use `mjr-meta-eval-multibase-convert'
+ - :calc .... Like calling `quick-calc'
+ - :elisp ... Like calling `eval-expression' (M-:)"
   (interactive (list (mjr-eval-util-extract-eval-str-from-buffer) 
                      (mjr-eval-util-read-engine '(:calc :elisp :int))))
   (if eval-str
-      (let* ((raw-res (pcase engine
-                        (:int    (mjr-eval-unsigned-integer eval-str))
-                        (:calc   (progn (require 'calc) (calc-eval eval-str)))
-                        (:elisp  (format "%s" (eval (car (read-from-string eval-str)))))
-                        (_        (error "mjr-eval-internal: Unknown value for ENGINE: %s" engine)))))
-        (unless (stringp raw-res)
-          (error "mjr-eval-internal: Something went wrong during evaluation!"))
-        (let ((prt-res (string-trim-right raw-res)))
-          (message (mjr-eval-util-format-result 'mjr-eval-external-session engine eval-str prt-res))
-          (kill-new prt-res)
-          prt-res))
-      (car (member engine '(:calc :elisp :int)))))
+      (if-let ((invalid-enginep (mjr-eval-internal nil engine)))
+          (error invalid-enginep)
+        (let* ((raw-res (pcase engine
+                          (:int   (mjr-eval-unsigned-integer eval-str))
+                          (:calc  (calc-eval eval-str))
+                          (:elisp (format "%s" (eval (car (read-from-string eval-str))))))))
+          (unless (stringp raw-res)
+            (error "mjr-eval-internal: Something went wrong during evaluation!"))
+          (let ((prt-res (string-trim-right raw-res)))
+            (message (mjr-eval-util-format-result 'mjr-eval-external-session engine eval-str prt-res))
+            (kill-new prt-res)
+            prt-res)))
+      (or (unless (member engine '(:calc :elisp :int))
+            (format "mjr-eval-internal: ENGINE (%s) Unsupported value!" engine))
+          (when (eq engine :calc)
+            (unless (require 'calc nil :noerror)
+              "mjr-eval-internal: ENGINE (:calc) not available! calc-mode could not be loaded.")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
