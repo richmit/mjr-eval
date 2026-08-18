@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.11
+;; Version:     2.12
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -207,8 +207,8 @@ An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps 
          (results     (plist-get engine-spec :results))
          (session     (if (string-match-p "-session$" (format "%s" engine)) " :session" "")))
     (if eval-str
-        (if-let ((invalid-enginep (mjr-eval-org-ticker nil engine)))
-            (error invalid-enginep)
+        (if-let ((engine-err (mjr-eval-org-ticker nil engine)))
+            (error engine-err)
           (with-current-buffer (get-buffer-create mjr-eval-org-ticker-buffer-name)
             (org-mode)
             (goto-char (point-max))
@@ -241,7 +241,7 @@ An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps 
             (unless (plistp engine-spec)
               (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! Not a plist." engine))
             (unless (featurep 'org)
-              (format "mjr-eval-org-ticker: ENGINE (%s) unavaliable -- org-mode not loaded!" engine))
+              (format "mjr-eval-org-ticker: ENGINE (%s) unavailable -- org-mode not loaded!" engine))
             (unless language
               (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! :language must be present and non-NIL." engine))
             (unless (stringp results)
@@ -249,7 +249,7 @@ An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps 
             (unless (stringp language)
               (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! :language must be a string." engine))
             (unless (featurep (intern (concat "ob-" language)))
-              (format "mjr-eval-org-ticker: ENGINE (%s) unavaliable -- org-mode babel support missing!" engine))))))
+              (format "mjr-eval-org-ticker: ENGINE (%s) unavailable -- org-mode babel support missing!" engine))))))
 
 ;; (progn
 ;;   (mjr-eval-org-ticker "(* 10 323)" :elisp)
@@ -297,7 +297,7 @@ Valid values for ENGINE:
                       Dubious behavior: 
                        - Sets the maxima session display2d preference to false.
                       Undesired behavior: 
-                       - When a new maxima session is started, it prints a lot of junk
+                       - When a new maxima session is started, the results are startup messages.
  - :octave-session .. Use octave via `octave-mode' shipped with octave
                       Only available if Emacs has a running inferior octave process (use `run-octave' to start one)
                       Evaluation time is limited to `mjr-eval-external-session-octave-exec-timeout' seconds.  
@@ -320,8 +320,8 @@ Valid values for ENGINE:
                          (error "mjr-eval-external-session: No engines available!"))
                        (mjr-eval-util-read-engine engine-list))))
   (if eval-str
-      (if-let ((invalid-enginep (mjr-eval-external-session nil engine)))
-          (error invalid-enginep)
+      (if-let ((engine-err (mjr-eval-external-session nil engine)))
+          (error engine-err)
         (let* ((raw-res (pcase engine
                           (:lisp-session   (cl-second (slime-eval `(swank:eval-and-grab-output ,eval-str))))
                           (:maxima-session (progn (maxima-single-string-wait (concat "display2d:false$ " eval-str))
@@ -479,8 +479,8 @@ Valid values for ENGINE:
   (interactive (list (mjr-eval-util-extract-eval-str-from-buffer) 
                      (mjr-eval-util-read-engine '(:calc :elisp :int))))
   (if eval-str
-      (if-let ((invalid-enginep (mjr-eval-internal nil engine)))
-          (error invalid-enginep)
+      (if-let ((engine-err (mjr-eval-internal nil engine)))
+          (error engine-err)
         (let* ((raw-res (pcase engine
                           (:int   (mjr-eval-unsigned-integer eval-str))
                           (:calc  (calc-eval eval-str))
@@ -550,58 +550,78 @@ Arguments:
                                  (intern (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x))) mjr-eval-meta-engines)))))))))
   (let ((engine-info (cdr (assoc engine mjr-eval-meta-engines))))
     (if eval-str
-        (if (mjr-eval-meta nil engine)
-            (funcall (car engine-info) eval-str engine)
-            (error "mjr-eval-meta: ENGINE (%s) is unavailable!" engine))
-        (and engine-info (funcall (car engine-info) nil engine) engine))))
+        (if-let ((engine-err (mjr-eval-meta nil engine)))
+            (error engine-err)
+          (funcall (car engine-info) eval-str engine))
+        (or (unless engine-info
+              (format "mjr-eval-meta: ENGINE (%s) was not found in `mjr-eval-meta-engines'!" engine))
+            (unless (listp engine-info)
+              (format "mjr-eval-meta: ENGINE (%s) has malformed entry in `mjr-eval-meta-engines'! Not a list!" engine))
+            (unless (= 3 (length engine-info))
+              (format "mjr-eval-meta: ENGINE (%s) has malformed entry in `mjr-eval-meta-engines'! Wrong length!" engine))
+            (funcall (car engine-info) nil engine)))))
 
-;; (mjr-eval-meta "inv([1,2,3;4,5,6;7,8,10])" :octave)
-;; "ans =
+;; (mjr-eval-meta "inv([1,2,3;4,5,6;7,8,10])" :octave-session)
+;; "
+;; #+RESULTS: oc-1
+;; #+begin_example
+;; ans =
+;;
 ;;   -0.6667  -1.3333   1.0000
 ;;   -0.6667   3.6667  -2.0000
-;;    1.0000  -2.0000   1.0000"
-;; 
+;;    1.0000  -2.0000   1.0000
+;; #+end_example
+;; "
 ;; (mjr-eval-meta "inv([1,2,3;4,5,6;7,8,10])" :calc)
 ;; "[[-0.666666666667, -1.33333333333, 1], [-0.666666666667, 3.66666666667, -2], [1, -2, 1]]"
-;; 
+;;
 ;; (mjr-eval-meta "inv([[1,2,3],[4,5,6],[7,8,10]])" :calc)
 ;; "[[-0.666666666667, -1.33333333333, 1], [-0.666666666667, 3.66666666667, -2], [1, -2, 1]]"
-;; 
-;; (mjr-eval-meta "invert(matrix([1,2,3],[4,5,6],[7,8,10]))" :maxima)
+;;
+;; (mjr-eval-meta "invert(matrix([1,2,3],[4,5,6],[7,8,10]))" :maxima-session)
 ;; "matrix([-2/3,-4/3,1],[-2/3,11/3,-2],[1,-2,1])"
-;; 
-;; (mjr-eval-meta "expand((x+1)^10)" :maxima)
-;; "x^10+10*x^9+45*x^8+120*x^7+210*x^6+252*x^5+210*x^4+120*x^3+45*x^2+10*x+1"
-;; 
+;;
+;; (mjr-eval-meta "expand((x+1)^10)" :maxima-session)
+;;
 ;; (mjr-eval-meta "expand((x+1)^10)" :calc)
 ;; "x^10 + 10 x^9 + 45 x^8 + 120 x^7 + 210 x^6 + 252 x^5 + 210 x^4 + 120 x^3 + 45 x^2 + 10 x + 1"
-;; 
+;;
 ;; (mjr-eval-meta "(+ 1 2)" :elisp)
 ;; "3"
-;; 
+;;
 ;; (mjr-eval-meta "(+ 1 2)" :lisp)
 ;; "3"
-;; 
+;;
 ;; (mjr-eval-meta "1+2" :calc)
 ;; "3"
-;; 
-;; (mjr-eval-meta "float(sin(1))" :maxima)
+;;
+;; (mjr-eval-meta "float(sin(1))" :maxima-session)
 ;; "0.8414709848078965"
-;; 
-;; (mjr-eval-meta "sin(1)" :octave)
-;; "ans = 0.8415"
-;; 
+;;
+;; (mjr-eval-meta "sin(1)" :octave-session)
+;; "
+;; #+RESULTS: oc-257
+;; #+begin_example
+;; ans = 0.8415
+;; #+end_example
+;; "
+;;
 ;; (mjr-eval-meta "sin(1)" :calc)
 ;; "0.0174524064373"
-;; 
+;;
 ;; (mjr-eval-meta "(sin 1)" :elisp)
 ;; "0.8414709848078965"
 ;;
-;; (mjr-eval-meta "solve(matrix(c(1,2,3,4,5,6,7,8,10), nrow=3, byrow=TRUE))" :r)
-;; "           [,1]      [,2] [,3]
+;; (mjr-eval-meta "solve(matrix(c(1,2,3,4,5,6,7,8,10), nrow=3, byrow=TRUE))" :r-session)
+;; "
+;; #+RESULTS: oc-420
+;; #+begin_example
+;;            [,1]      [,2] [,3]
 ;; [1,] -0.6666667 -1.333333    1
 ;; [2,] -0.6666667  3.666667   -2
-;; [3,]  1.0000000 -2.000000    1"
+;; [3,]  1.0000000 -2.000000    1
+;; #+end_example
+;; "
 
 ;; (mjr-install-mjr-packages :reinstall :git 'mjr-eval)
 
