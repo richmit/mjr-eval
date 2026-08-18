@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.9
+;; Version:     2.10
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -249,7 +249,7 @@ An org buffer, named with the string in `mjr-eval-org-ticker-buffer-name' keeps 
             (unless (stringp language)
               (format "mjr-eval-org-ticker: ENGINE (%s) entry in mjr-eval-org-ticker-engines malformed! :language must be a string." engine))
             (unless (featurep (intern (concat "ob-" language)))
-              (format "mjr-eval-org-ticker: ENGINE (%s) unavaliable -- org-mode babel support missing!"))))))
+              (format "mjr-eval-org-ticker: ENGINE (%s) unavaliable -- org-mode babel support missing!" engine))))))
 
 ;; (progn
 ;;   (mjr-eval-org-ticker "(* 10 323)" :elisp)
