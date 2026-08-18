@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.15
+;; Version:     2.16
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -170,7 +170,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defcustom mjr-eval-org-ticker-buffer-name "*mjr-eval-org-ticker*"
-"Name for temporary `org-mode' buffer used by `mjr-eval-org-ticker'."
+  "Name for temporary `org-mode' buffer used by `mjr-eval-org-ticker'."
   :type 'string
   :group 'mjr-eval)
 
@@ -503,14 +503,14 @@ Valid values for ENGINE:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defcustom mjr-eval-external-one-args '((:bash   . ("-c" nil))
-                                      (:julia  . ("--banner=no" "--color=no" "-E" nil))
-                                      (:octave . ("--no-gui"  "--no-window-system" "--quiet" "--no-history" "-e" nil))
-                                      (:r      . ("--no-save" "--no-restore" "--no-site-file" "--no-init-file" "--no-environ" "--no-echo" "--quiet" "-e" nil))
-                                      (:ruby   . ("-e" nil))
-                                      (:maxima . ("--very-quiet" "-r" nil))
-                                      (:sbcl   . ("--noinform" "--non-interactive" "--eval" nil))
-                                      (:python . ("-u" "-c" nil))
-                                      (:sh     . ("-c" nil)))
+                                        (:julia  . ("--banner=no" "--color=no" "-E" nil))
+                                        (:octave . ("--no-gui"  "--no-window-system" "--quiet" "--no-history" "-e" nil))
+                                        (:r      . ("--no-save" "--no-restore" "--no-site-file" "--no-init-file" "--no-environ" "--no-echo" "--quiet" "-e" nil))
+                                        (:ruby   . ("-e" nil))
+                                        (:maxima . ("--very-quiet" "-r" nil))
+                                        (:sbcl   . ("--noinform" "--non-interactive" "--eval" nil))
+                                        (:python . ("-u" "-c" nil))
+                                        (:sh     . ("-c" nil)))
   "Command line arguments for external tools when called by `mjr-eval-external'."
   :type '(alist :key-type symbol :value-type (repeat (choice (const nil) string)))
   :group 'mjr-eval)
