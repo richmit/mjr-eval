@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     2.16
+;; Version:     2.17
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -99,6 +99,13 @@
 ;; (require 'slime-autoloads nil :noerror)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defgroup mjr-eval nil
+  "mjr-eval"
+  :group 'convenience
+  :group 'development)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-extract-eval-str-from-buffer ()
   "Get a string from the marked text in a buffer or ask the user for a string if nothing is marked."
   (or (and transient-mark-mode
@@ -117,10 +124,31 @@
                                              (mapcar (lambda (x) (symbol-name (car x))) list-or-alist-of-engines))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-eval-util-format-result-max-lines 10
+  "Do not include RESULT-STR in the mesage returned by `mjr-eval-util-format-result' if it has more lines."
+  :type 'number
+  :group 'mjr-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-eval-util-format-result-max-bytes 10000
+  "Do not include RESULT-STR in the mesage returned by `mjr-eval-util-format-result' if it has more bytes."
+  :type 'number
+  :group 'mjr-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;###autoload
+(defcustom mjr-eval-util-format-result-include-from-func t
+  "When non-NIL `mjr-eval-util-format-result' will include FROM-FUNC argument message string."
+  :type 'boolean
+  :group 'mjr-eval)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-format-result (from-func engine eval-str result-str)
   "Clean up evaluation results and produce a nice string for a message."
   (let ((msg ""))
-    (when from-func
+    (when (and from-func mjr-eval-util-format-result-include-from-func)
       (setq msg (string-remove-prefix "mjr-eval-" (format "%s" from-func))))
     (when engine
       (setq msg (string-trim (concat msg " " (format "%s" engine)))))
@@ -130,7 +158,14 @@
     (setq msg (concat msg " => "))
     (when (string-match-p "[^\n\r]+[\n\r]+[^\n\r]+" result-str)
       (setq msg (concat msg "\n")))
-    (setq msg (concat msg result-str))
+    (let ((result-length (length result-str)))
+      (if (or (< mjr-eval-util-format-result-max-bytes result-length)
+              (< mjr-eval-util-format-result-max-lines (cl-loop for n from 0 upto mjr-eval-util-format-result-max-lines
+                                                                for s = 1 then (match-end 0)
+                                                                finally (cl-return n)
+                                                                while (string-match "\\(\r\n\\|\n\\|\r\\)" result-str s))))
+          (setq msg (concat msg (format "Output too long (%d bytes).  Placed on the kill ring." result-length)))
+          (setq msg (concat msg result-str))))
     msg))
 
 ;; (progn
@@ -142,13 +177,6 @@
 ;;   (print (mjr-eval-util-format-result nil nil "1+1" "23"))
 ;;   (print (mjr-eval-util-format-result nil nil "1+\n1" "23"))
 ;;   (print (mjr-eval-util-format-result nil nil "1+1" "2")))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;###autoload
-(defgroup mjr-eval nil
-  "mjr-eval"
-  :group 'convenience
-  :group 'development)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
@@ -478,7 +506,8 @@ When EVAL-STR is NIL, return a error message string if ENGINE is NOT aviable.
 Valid values for ENGINE:
  - :int ..... Use `mjr-meta-eval-multibase-convert'
  - :calc .... Like calling `quick-calc'
- - :elisp ... Like calling `eval-expression' (M-:)"
+ - :elisp ... Like calling `eval-expression' (M-:)
+ - :shell ... Like calling `shell-command-to-string'"
   (interactive (list (mjr-eval-util-extract-eval-str-from-buffer) 
                      (mjr-eval-util-read-engine '(:calc :elisp :int))))
   (if eval-str
@@ -487,6 +516,7 @@ Valid values for ENGINE:
         (let* ((raw-res (pcase engine
                           (:int   (mjr-eval-unsigned-integer eval-str))
                           (:calc  (calc-eval eval-str))
+                          (:shell (shell-command-to-string eval-str))
                           (:elisp (format "%s" (eval (car (read-from-string eval-str))))))))
           (unless (stringp raw-res)
             (error "mjr-eval-internal: Something went wrong during evaluation!"))
@@ -494,7 +524,7 @@ Valid values for ENGINE:
             (message (mjr-eval-util-format-result 'mjr-eval-external-session engine eval-str prt-res))
             (kill-new prt-res)
             prt-res)))
-      (or (unless (member engine '(:calc :elisp :int))
+      (or (unless (member engine '(:calc :elisp :int :shell))
             (format "mjr-eval-internal: ENGINE (%s) Unsupported value!" engine))
           (when (eq engine :calc)
             (unless (require 'calc nil :noerror)
@@ -592,7 +622,8 @@ Valid values for ENGINE:
                                    (:lisp-session     . (mjr-eval-external-session ?l "Evaluate as Common lisp code via SLIME"))
                                    (:maxima-session   . (mjr-eval-external-session ?m "Evaluate in maxima session"))
                                    (:r-session        . (mjr-eval-org-ticker       ?r "Evaluate in R session"))
-                                   (:octave-session   . (mjr-eval-org-ticker       ?o "Evaluate in octave session")))
+                                   (:octave-session   . (mjr-eval-org-ticker       ?o "Evaluate in octave session"))
+                                   (:shell            . (mjr-eval-internal         ?s "Evaluate as via standard shell")))
   "Engines available for `mjr-eval-meta-engines'."
   :type '(alist :key-type symbol :value-type (list symbol character string))
   :group 'mjr-eval)
