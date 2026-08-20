@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     3.2
+;; Version:     3.3
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -139,11 +139,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-read-engine (list-or-alist-of-engines)
   "Prompt the user for an ENGINE from the given list."
-  (intern (downcase (ido-completing-read "Eval how: " 
-                                         (if (and (car list-or-alist-of-engines)
+  (let ((list-o-engines (if (and (car list-or-alist-of-engines)
                                                   (symbolp (car list-or-alist-of-engines)))
                                              (mapcar #'symbol-name list-or-alist-of-engines)
-                                             (mapcar (lambda (x) (symbol-name (car x))) list-or-alist-of-engines))))))
+                                             (mapcar (lambda (x) (symbol-name (car x))) list-or-alist-of-engines))))
+    (intern (downcase (if (and (boundp 'ido-everywhere) ido-everywhere)
+                          (ido-completing-read "Eval how: " list-o-engines 't)
+                          (completing-read     "Eval how: " list-o-engines 't))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
@@ -169,7 +171,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mjr-eval-util-format-result (from-func engine eval-str result-str)
   "Clean up evaluation results and produce a nice string for a message."
-  (let ((msg ""))
+  (let* ((msg           "")
+         (result-length (length result-str))
+         (result-lines  (cl-loop for n from 0 
+                                 for s = 1 then (match-end 0)
+                                 finally (cl-return n)
+                                 while (string-match "\\(\r\n\\|\n\\|\r\\)" result-str s)))
+         (result-str-fx (if (or (< mjr-eval-util-format-result-max-bytes result-length)
+                                (< mjr-eval-util-format-result-max-lines result-lines))
+                            (format "Output too long (%d lines/%d bytes).  Placed on the kill ring." result-lines result-length)
+                            result-str)))
     (when (and from-func mjr-eval-util-format-result-include-from-func)
       (setq msg (string-remove-prefix "mjr-eval-" (format "%s" from-func))))
     (when engine
@@ -178,16 +189,9 @@
     (unless (string-match-p "[^\n\r]+[\n\r]+[^\n\r]+" eval-str)
       (setq msg (string-trim (concat msg " of " eval-str))))
     (setq msg (concat msg " => "))
-    (when (string-match-p "[^\n\r]+[\n\r]+[^\n\r]+" result-str)
+    (when (string-match-p "[^\n\r]+[\n\r]+[^\n\r]+" result-str-fx)
       (setq msg (concat msg "\n")))
-    (let ((result-length (length result-str)))
-      (if (or (< mjr-eval-util-format-result-max-bytes result-length)
-              (< mjr-eval-util-format-result-max-lines (cl-loop for n from 0 upto mjr-eval-util-format-result-max-lines
-                                                                for s = 1 then (match-end 0)
-                                                                finally (cl-return n)
-                                                                while (string-match "\\(\r\n\\|\n\\|\r\\)" result-str s))))
-          (setq msg (concat msg (format "Output too long (%d bytes).  Placed on the kill ring." result-length)))
-          (setq msg (concat msg result-str))))
+    (setq msg (concat msg result-str-fx))
     msg))
 
 ;; (progn
@@ -562,9 +566,11 @@ Valid values for ENGINE:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defcustom mjr-eval-external-one-engines '((:bash   . ("bash"   "-c" nil))
+                                           (:zsh    . ("zsh"    "-c" nil))
                                            (:julia  . ("julia"  "--banner=no" "--color=no" "-E" nil))
                                            (:octave . ("octave" "--no-gui"  "--no-window-system" "--quiet" "--no-history" "-e" nil))
-                                           (:r      . ("R"      "--no-save" "--no-restore" "--no-site-file" "--no-init-file" "--no-environ" "--no-echo" "--quiet" "-e" nil))
+                                           (:r      . ("R"      "--no-save" "--no-restore" "--no-echo" "--quiet" "-e" nil))
+                                           (:r-bat  . ("R"      "--no-save" "--no-restore" "--no-site-file" "--no-init-file" "--no-environ" "--no-echo" "--quiet" "-e" nil))
                                            (:ruby   . ("ruby"   "-e" nil))
                                            (:maxima . ("maxima" "--very-quiet" "-r" nil))
                                            (:sbcl   . ("sbcl"   "--noinform" "--non-interactive" "--eval" nil))
@@ -608,6 +614,7 @@ binary based on the command name in `mjr-eval-external-one-engines' and add it t
           (with-temp-buffer
             (let* ((expanded-args (cl-substitute eval-str nil arg))
                    (proces-return (apply #'call-process fcmd nil t nil expanded-args)))
+          (message "mjr-eval-external: expanded-args: %S" expanded-args)
               (unless proces-return
                 (error "mjr-eval-external-one: Failed to run process!"))
               (let* ((proces-output (buffer-substring-no-properties (point-min) (point-max)))
@@ -615,11 +622,9 @@ binary based on the command name in `mjr-eval-external-one-engines' and add it t
                      (pretty-output (if (or (string-empty-p trimed-output) (string-match-p "^[[:space:]\n]*$" trimed-output))
                                         (format "Process printed no result with exit code %s." proces-return)
                                         trimed-output)))
-                    (if (string-match "[\n\r]" pretty-output)
-                        (message "mjr-eval-external-one: %s => \n%s" eval-str pretty-output)
-                        (message "mjr-eval-external-one: %s => %s" eval-str pretty-output))
-                    (kill-new pretty-output)
-                    pretty-output)))))
+                (message (mjr-eval-util-format-result 'mjr-eval-external-one engine eval-str pretty-output))
+                (kill-new pretty-output)
+                pretty-output)))))
       (or (unless (symbolp engine)
             (format "mjr-eval-external-one: ENGINE (%S) is not a symbol!" engine))
           (unless (assoc engine mjr-eval-external-one-engines)
@@ -667,23 +672,31 @@ binary based on the command name in `mjr-eval-external-one-engines' and add it t
                                    (:maxima-session   . (mjr-eval-external-session ?m "Evaluate in maxima session"))
                                    (:r-session        . (mjr-eval-org-ticker       ?r "Evaluate in R session"))
                                    (:octave-session   . (mjr-eval-org-ticker       ?o "Evaluate in octave session"))
-                                   (:shell            . (mjr-eval-internal         ?s "Evaluate as via standard shell")))
-  "Engines available for `mjr-eval-meta-engines'."
+                                   (:shell            . (mjr-eval-internal         ?s "Evaluate as via standard shell"))
+                                   (:bash             . (mjr-eval-external-one     nil "Evaluate via bash"))
+                                   (:sh               . (mjr-eval-external-one     nil "Evaluate via sh"))
+                                   (:zsh              . (mjr-eval-external-one     nil "Evaluate via zsh"))
+                                   (:ruby             . (mjr-eval-external-one     nil "Evaluate via Ruby"))
+                                   (:sbcl             . (mjr-eval-external-one     nil "Evaluate via SBCL")))
+  "Engines for `mjr-eval-meta'.
+The cdr is a list:  Handler, key used for `read-answer', and help for `read-answer'.  If the key is NIL, then the argument will not appear
+when `read-answer' is used for prompts."
   :type '(alist :key-type symbol :value-type (list symbol character string))
   :group 'mjr-eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
-(defcustom mjr-eval-meta-use-ido nil
-  "Use `ido-completing-read' if non-NIL.  Otherwise use `read-answer'.
-`read-answer' provides a faster, but more terse user interface -- i.e. only one keystroke to select an evaluation method instead of two."
+(defcustom mjr-eval-meta-use-read-answer nil
+  "When non-NIL use `read-answer' to query ENGINE.  Otherwise use `completing-read' or `ido-completing-read'.
+`read-answer' provides a faster, but more terse user interface -- i.e. only one keystroke to select an evaluation method instead of two.
+Note that elements in `mjr-eval-meta-engines' with a NIL quick key will not be in the prompt when this is non-NIL."
   :type 'boolean
   :group 'mjr-meta-eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
 (defun mjr-eval-meta (eval-str engine)
-  "Evaluate the region or expression near the point using an ENGINE on `mjr-eval-meta-engines', and put the result in the kill ring.
+  "Evaluate the region or expression near the point using an ENGINE, and put the result in the kill ring.
 Arguments:
  - EVAL-STR: A string to evaluate.  (it may also be NIL to check the availability of ENGINE)
    In interactive mode:
@@ -698,8 +711,8 @@ Arguments:
         - Lisp adjacent modes ... Sexp at the point (point should be on the opening paren or just after the closing paren).
         - In non-lisp modes ..... A string not containing white-space.
       - If whatever is found doesn't look like a single integer, then the user is given the opportunity to edit it before evaluation.
- - ENGINE: One of the keys of `mjr-eval-meta-engines'
-   In interactive mode, when EVAL-STR doesn't look like a single integer, the user is prompted for an engine."
+ - ENGINE: One of the keys of `mjr-eval-meta-engines'.
+   In interactive mode, when EVAL-STR doesn't look like a single integer, the user is prompted for an engine on `mjr-eval-meta-engines'."
   (interactive (let* ((reg-act (region-active-p))                                                                                   ;; Is region active
                       (bor     (if reg-act (region-beginning) (point)))                                                             ;; Start of region or point
                       (eor     (if reg-act (region-end)       (point))))                                                            ;; End of region or point
@@ -711,7 +724,9 @@ Arguments:
                               (reg-str (if com-end (string-remove-suffix com-end (string-trim-right reg-raw)) reg-raw))             ;;   Code string with comment ending bits removed
                               (reg-lin (string-split reg-str "[\n\r]+" t))                                                          ;;   List of non-blank lines
                               (lin-one (car reg-lin))                                                                               ;;   First line (string)
-                              (reg-one (concat "^.*" (regexp-opt (mapcar #'symbol-name mjr-eval-meta-generator-engines) t) ">>>"))) ;;   First line regular expression
+                              (reg-one (concat "^.*"                                                                                ;;   First line regular expression
+                                               (regexp-opt (mapcar (lambda (x) (symbol-name (car x))) mjr-eval-meta-engines) t)
+                                               ">>>")))
                          (when (and lin-one (string-match reg-one lin-one))                                                              
                            (let ((pre-len (length (substring-no-properties (match-string 0 lin-one)))))                             ;;   Number of chars before code on fist line
                              (list (mapconcat (lambda (s) (substring s pre-len)) reg-lin "\n")                                      ;;   Code string
@@ -728,12 +743,13 @@ Arguments:
                              (if (mjr-eval-unsigned-integer eval-str)                                                               ;; Check if it looks like an integer
                                  (list eval-str :int)                                                                               ;;   If so, then :int mode
                                  (list eval-str
-                                       (if (and mjr-eval-meta-use-ido (require 'ido nil :noerror))                                  ;;   Otherwise read engine
-                                           (mjr-eval-util-read-engine mjr-eval-meta-engines)
+                                       (if mjr-eval-meta-use-read-answer                                                            ;;   Otherwise read engine
                                            (let ((read-answer-short t))
                                              (intern (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x)))
-                                                                                       mjr-eval-meta-engines)))))))))))))
-  (let ((engine-info (cdr (assoc engine mjr-eval-meta-engines))))
+                                                                                       (cl-remove-if-not (lambda (x) (nth 1 (cdr x)) mjr-eval-meta-engines)))))
+                                           (mjr-eval-u til-read-engine mjr-eval-meta-engines)))))))))))
+  (let ((engine-info (cdr (assoc engine (append mjr-eval-meta-engines)))))
+    (message "EI: %S" engine-info)
     (if eval-str
         (if-let ((engine-err (mjr-eval-meta nil engine)))
             (error engine-err)
