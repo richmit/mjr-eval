@@ -27,7 +27,7 @@
 
 ;;; Commentary:
 ;;
-;; # MJR's Emacs Code Evaluation Tools (`mjr-eval')
+;; # Emacs Code Evaluation Tools (`mjr-eval')
 ;;
 ;; See the README: https://github.com/richmit/mjr-eval/
 ;;

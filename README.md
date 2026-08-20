@@ -1,5 +1,5 @@
 <!-- :bash>>> ~/core/codeBits/bin/emacs_package_com_to_md.rb mjr-eval.el -->
- # MJR's Emacs Code Evaluation Tools (`mjr-eval`)
+ # Emacs Code Evaluation Tools (`mjr-eval`)
 
  See the README: https://github.com/richmit/mjr-eval/
 
