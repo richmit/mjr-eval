@@ -27,6 +27,8 @@
 
 ;;; Commentary:
 ;;
+;; # MJR's Emacs Code Evaluation Tools (`mjr-eval')
+;;
 ;; See the README: https://github.com/richmit/mjr-eval/
 ;;
 ;; ## Introduction
@@ -35,8 +37,6 @@
 ;;  - Preform mathematical computations
 ;;  - Generate code/documentation
 ;;  - Act as an alternative for `eval-expression' (M-:) & `shell-command' (C-u M-!)
-;;
-;; # MJR's Emacs Code Evaluation Tools (`mjr-eval')
 ;;
 ;; ## Code Generation
 ;;
