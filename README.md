@@ -71,12 +71,16 @@
     - Con: High latency
     - Pro/Con: No session support (which also means no session to crash or freeze)
 
+ ## One Function To Bind Them All (`mjr-eval-meta`)
+
  While all of the HANDLERs can be used interactively, the dispatch function `mjr-eval-meta` provides a nice way to access group a collection of preferred
  HANDLERs & ENGINEs.  This function has a more sophisticated user interface and allows the user to customize what tools are available.
 
  I normally bind `mjr-eval-meta` to "ESC ESC :".  I think of `mjr-eval-meta` as an extended version of `eval-expression` that is normally bound to "ESC :".
 
       (keymap-global-set "ESC ESC :" 'mjr-eval-meta)
+
+ ## Installing
 
  The easiest way to install mjr-eval is to pull it directly from github:
 
