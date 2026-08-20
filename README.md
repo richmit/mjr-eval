@@ -44,6 +44,8 @@
   - Provides a fast way for the user to select which computational tool to use (just a single key press)
   - Evaluates the expression and both prints the results and places them on the kill ring.
 
+ ## Engines & Handlers
+
  This package uses a couple terms:
   - ENGINE to mean a computational tool (i.e. octave is an engine as is `calc`).
   - HANDLER is a function that takes a string to evaluate and a symbol identifying an ENGINE.
