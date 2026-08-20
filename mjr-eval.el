@@ -72,6 +72,8 @@
 ;;  - Provides a fast way for the user to select which computational tool to use (just a single key press)
 ;;  - Evaluates the expression and both prints the results and places them on the kill ring.
 ;;
+;; The suggested interface for mathematical computation is `mjr-eval-meta'.
+;;
 ;; ## Engines & Handlers
 ;;
 ;; This package uses a couple terms:
