@@ -1,6 +1,6 @@
 # mjr-eval
 
-<!-- :shell>>> ~/core/codeBits/bin/emacs_package_com_to_md.rb mjr-eval.el -->
+<!-- :bash>>> ~/core/codeBits/bin/emacs_package_com_to_md.rb mjr-eval.el -->
  See the README: https://github.com/richmit/mjr-eval/
 
  ## Introduction
