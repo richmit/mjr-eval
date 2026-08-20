@@ -1,4 +1,4 @@
-;;; mjr-eval -- evaluate mathematical expressions -*- lexical-binding:nil; coding: utf-8; mode:emacs-lisp; fill-column:158 -*-
+;;; mjr-eval -- evaluate mathematical expressions -*- lexical-binding:t; coding: utf-8; mode:emacs-lisp; fill-column:158 -*-
 
 ;; Copyright (c) 2026-2026 Mitch Richling <https://www.mitchr.me>.  All rights reserved.
 ;;
@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     3.5
+;; Version:     3.7
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -612,16 +612,15 @@ binary based on the command name in `mjr-eval-external-one-engines' and add it t
                                  (setq mjr-eval-external-one-command-cache (cons (cons cmd path) mjr-eval-external-one-command-cache))
                                  path))))))
           (with-temp-buffer
-            (let* ((da-proc (apply #'make-process (list :name "mjr-eval" 
-                                                        :buffer (current-buffer)
-                                                        :sentinel #'ignore
-                                                        :command (cons fcmd (cl-substitute eval-str nil arg))))))
-              (while (process-live-p da-proc)
-                (sleep-for 0.1))
+            (let* ((expanded-args (cl-substitute eval-str nil arg))
+                   (proces-return (apply #'call-process fcmd nil t nil expanded-args)))
+              (message "mjr-eval-external: expanded-args: %S" expanded-args)
+              (unless proces-return
+                (error "mjr-eval-external-one: Failed to run process!"))
               (let* ((proces-output (buffer-substring-no-properties (point-min) (point-max)))
                      (trimed-output (string-trim-right proces-output))
-                     (pretty-output (if (or (string-empty-p trimed-output) (string-match-p "^[[:space:]\n]*$" trimed-output))
-                                        "No output from process detected"
+                     (pretty-output (if (or (string-empty-p trimed-output) (string-match-p "'[[:space:]\n]*`" trimed-output))
+                                        (format "Process printed no result with exit code %s." proces-return)
                                         trimed-output)))
                 (message (mjr-eval-util-format-result 'mjr-eval-external-one engine eval-str pretty-output))
                 (kill-new pretty-output)
