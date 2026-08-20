@@ -36,6 +36,8 @@
 ;;  - Generate code/documentation
 ;;  - Act as an alternative for `eval-expression' (M-:) & `shell-command' (C-u M-!)
 ;;
+;; # MJR's Emacs Code Evaluation Tools (`mjr-eval')
+;;
 ;; ## Code Generation
 ;;
 ;; I frequently generate code via code embedded comments inside other code.  Wow.  What a sentence.  A good example is the README.md file for this
@@ -99,8 +101,8 @@
 ;;
 ;; ## One Function To Bind Them All (`mjr-eval-meta')
 ;;
-;; While all of the HANDLERs can be used interactively, the dispatch function `mjr-eval-meta' provides a nice way to access group a collection of preferred
-;; HANDLERs & ENGINEs.  This function has a more sophisticated user interface and allows the user to customize what tools are available.
+;; While all of the HANDLERs can be used interactively, the dispatch function `mjr-eval-meta' provides a nice way to access a customizeable collection of
+;; preferred HANDLERs & ENGINEs.  This function also has a far more sophisticated interactive user user interface than HANDLERs.
 ;;
 ;; I normally bind `mjr-eval-meta' to "ESC ESC :".  I think of `mjr-eval-meta' as an extended version of `eval-expression' that is normally bound to "ESC :".
 ;;
