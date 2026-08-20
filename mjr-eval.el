@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     3.3
+;; Version:     3.4
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -746,8 +746,8 @@ Arguments:
                                        (if mjr-eval-meta-use-read-answer                                                            ;;   Otherwise read engine
                                            (let ((read-answer-short t))
                                              (intern (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x)))
-                                                                                       (cl-remove-if-not (lambda (x) (nth 1 (cdr x)) mjr-eval-meta-engines)))))
-                                           (mjr-eval-u til-read-engine mjr-eval-meta-engines)))))))))))
+                                                                                       (cl-remove-if-not (lambda (x) (nth 1 (cdr x))) mjr-eval-meta-engines)))))
+                                             (mjr-eval-util-read-engine mjr-eval-meta-engines))))))))))
   (let ((engine-info (cdr (assoc engine (append mjr-eval-meta-engines)))))
     (message "EI: %S" engine-info)
     (if eval-str
