@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     3.7
+;; Version:     3.8
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -675,32 +675,39 @@ binary based on the command name in `mjr-eval-external-one-engines' and add it t
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
-(defcustom mjr-eval-meta-engines '((:int              . (mjr-eval-internal         ?i "Integer"))
-                                   (:calc             . (mjr-eval-internal         ?c "Evaluate with Emacs calc"))
-                                   (:elisp            . (mjr-eval-internal         ?e "Evaluate as Emacs lisp code"))
-                                   (:lisp-session     . (mjr-eval-external-session ?l "Evaluate as Common lisp code via SLIME"))
-                                   (:maxima-session   . (mjr-eval-external-session ?m "Evaluate in maxima session"))
-                                   (:r-session        . (mjr-eval-org-ticker       ?r "Evaluate in R session"))
-                                   (:octave-session   . (mjr-eval-org-ticker       ?o "Evaluate in octave session"))
-                                   (:shell            . (mjr-eval-internal         ?s "Evaluate as via standard shell"))
-                                   (:bash             . (mjr-eval-external-one     nil "Evaluate via bash"))
-                                   (:sh               . (mjr-eval-external-one     nil "Evaluate via sh"))
-                                   (:zsh              . (mjr-eval-external-one     nil "Evaluate via zsh"))
-                                   (:ruby             . (mjr-eval-external-one     nil "Evaluate via Ruby"))
-                                   (:sbcl             . (mjr-eval-external-one     nil "Evaluate via SBCL")))
+(defcustom mjr-eval-meta-engines '((:int              . (mjr-eval-internal         ?i  ))
+                                   (:calc             . (mjr-eval-internal         ?c  ))
+                                   (:elisp            . (mjr-eval-internal         ?e  ))
+                                   (:lisp-session     . (mjr-eval-external-session ?l  ))
+                                   (:maxima-session   . (mjr-eval-external-session ?m  ))
+                                   (:r-session        . (mjr-eval-org-ticker       ?r  ))
+                                   (:octave-session   . (mjr-eval-org-ticker       ?o  ))
+                                   (:shell            . (mjr-eval-internal         ?s  ))
+                                   (:bash             . (mjr-eval-external-one     nil ))
+                                   (:sh               . (mjr-eval-external-one     nil ))
+                                   (:zsh              . (mjr-eval-external-one     nil ))
+                                   (:ruby             . (mjr-eval-external-one     nil ))
+                                   (:sbcl             . (mjr-eval-external-one     nil )))
   "Engines for `mjr-eval-meta'.
 The cdr is a list:  Handler, key used for `read-answer', and help for `read-answer'.  If the key is NIL, then the argument will not appear
 when `read-answer' is used for prompts."
-  :type '(alist :key-type symbol :value-type (list symbol character string))
+  :type '(alist :key-type symbol :value-type (list symbol character))
   :group 'mjr-eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;###autoload
-(defcustom mjr-eval-meta-use-read-answer nil
-  "When non-NIL use `read-answer' to query ENGINE.  Otherwise use `completing-read' or `ido-completing-read'.
-`read-answer' provides a faster, but more terse user interface -- i.e. only one keystroke to select an evaluation method instead of two.
-Note that elements in `mjr-eval-meta-engines' with a NIL quick key will not be in the prompt when this is non-NIL."
-  :type 'boolean
+(defcustom mjr-eval-meta-how-read 'read-multiple-choice
+  "A symbol describeing how to query ENGINE values.
+  - `read-multiple-choice'
+  - `read-answer'
+  - `mjr-eval-util-read-engine' (Uses `completing-read' or `ido-completing-read')
+`read-multiple-choice' & `read-answer' provide the fastest user interface -- only one keystroke to select an evaluation method.  The user interface provided
+by `read-answer' is the most compact in that it only displays a single letter for each option.  The prompt for `read-multiple-choice' displays every option
+and thus may wrap for lengthy `mjr-eval-meta-engines' values.  Both `read-multiple-choice' & `read-answer' filter out elements in `mjr-eval-meta-engines'
+with a NIL quick key value."
+  :type '(choice (const read-multiple-choice)
+                 (const read-answer)
+                 (const mjr-eval-util-read-engine))
   :group 'mjr-meta-eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -723,43 +730,57 @@ Arguments:
       - If whatever is found doesn't look like a single integer, then the user is given the opportunity to edit it before evaluation.
  - ENGINE: One of the keys of `mjr-eval-meta-engines'.
    In interactive mode, when EVAL-STR doesn't look like a single integer, the user is prompted for an engine on `mjr-eval-meta-engines'."
-  (interactive (let* ((reg-act (region-active-p))                                                                                   ;; Is region active
-                      (bor     (if reg-act (region-beginning) (point)))                                                             ;; Start of region or point
-                      (eor     (if reg-act (region-end)       (point))))                                                            ;; End of region or point
-                 (or (save-excursion                                                                                                ;; Look for a code marker
-                       (let* ((bor-bol (progn (goto-char bor) (line-beginning-position)))                                           ;;   Start of the first line of region or line with point
-                              (eor-eol (progn (goto-char eor) (line-end-position)))                                                 ;;   End of the last line of region or line with point
-                              (com-end (if (boundp 'comment-end) comment-end))                                                      ;;   Comment end string
-                              (reg-raw (buffer-substring-no-properties bor-bol eor-eol))                                            ;;   String with lines containing code
-                              (reg-str (if com-end (string-remove-suffix com-end (string-trim-right reg-raw)) reg-raw))             ;;   Code string with comment ending bits removed
-                              (reg-lin (string-split reg-str "[\n\r]+" t))                                                          ;;   List of non-blank lines
-                              (lin-one (car reg-lin))                                                                               ;;   First line (string)
-                              (reg-one (concat "^.*"                                                                                ;;   First line regular expression
+  (interactive (let* ((reg-act (region-active-p))                                                                       ;; Is region active
+                      (bor     (if reg-act (region-beginning) (point)))                                                 ;; Start of region or point
+                      (eor     (if reg-act (region-end)       (point))))                                                ;; End of region or point
+                 (or (save-excursion                                                                                    ;; Look for a code marker
+                       (let* ((bor-bol (progn (goto-char bor) (line-beginning-position)))                               ;;   Start of the first line of region or line with point
+                              (eor-eol (progn (goto-char eor) (line-end-position)))                                     ;;   End of the last line of region or line with point
+                              (com-end (if (boundp 'comment-end) comment-end))                                          ;;   Comment end string
+                              (reg-raw (buffer-substring-no-properties bor-bol eor-eol))                                ;;   String with lines containing code
+                              (reg-str (if com-end (string-remove-suffix com-end (string-trim-right reg-raw)) reg-raw)) ;;   Code string with comment ending bits removed
+                              (reg-lin (string-split reg-str "[\n\r]+" t))                                              ;;   List of non-blank lines
+                              (lin-one (car reg-lin))                                                                   ;;   First line (string)
+                              (reg-one (concat "^.*"                                                                    ;;   First line regular expression
                                                (regexp-opt (mapcar (lambda (x) (symbol-name (car x))) mjr-eval-meta-engines) t)
                                                ">>>")))
                          (when (and lin-one (string-match reg-one lin-one))                                                              
-                           (let ((pre-len (length (substring-no-properties (match-string 0 lin-one)))))                             ;;   Number of chars before code on fist line
-                             (list (mapconcat (lambda (s) (substring s pre-len)) reg-lin "\n")                                      ;;   Code string
-                                   (intern (substring-no-properties (match-string 1 lin-one))))))))                                 ;;   engine string
-                     (let ((buf-str (or (if reg-act (buffer-substring-no-properties bor eor))                                       ;; Guess for eval-str from buffer contents
-                                        (and (string-match "\\(slime\\|lisp\\)" (symbol-name major-mode))                           ;;   Whatever we find near the point
-                                                                 (thing-at-point 'sexp))                                            ;;   A sexp in lisp modes
-                                                            (and (thing-at-point-looking-at "\\([^[:space:]]+\\)" 30)               ;;   A string with no white space otherwise
-                                                                 (match-string 0))                                                       
-                                                            "")))                                                                   ;;   Or the empty string
-                       (if (mjr-eval-unsigned-integer buf-str)                                                                      ;; Check if the guess looks like an int
-                           (list buf-str :int)                                                                                      ;;   If so, then :int mode
-                           (let ((eval-str (read-string "Expression to evaluate: " buf-str)))                                       ;;   Otherwise read something from the user
-                             (if (mjr-eval-unsigned-integer eval-str)                                                               ;; Check if it looks like an integer
-                                 (list eval-str :int)                                                                               ;;   If so, then :int mode
-                                 (list eval-str
-                                       (if mjr-eval-meta-use-read-answer                                                            ;;   Otherwise read engine
-                                           (let ((read-answer-short t))
-                                             (intern (read-answer "Eval how: " (mapcar (lambda (x) (list (symbol-name (car x)) (nth 2 x) (nth 3 x)))
-                                                                                       (cl-remove-if-not (lambda (x) (nth 1 (cdr x))) mjr-eval-meta-engines)))))
-                                             (mjr-eval-util-read-engine mjr-eval-meta-engines))))))))))
+                           (let ((pre-len (length (substring-no-properties (match-string 0 lin-one)))))                 ;;   Number of chars before code on fist line
+                             (list (mapconcat (lambda (s) (substring s pre-len)) reg-lin "\n")                          ;;   Code string
+                                   (intern (substring-no-properties (match-string 1 lin-one))))))))                     ;;   engine string
+                     (let ((buf-str (or (if reg-act (buffer-substring-no-properties bor eor))                           ;; Guess for eval-str from buffer contents
+                                        (and (string-match "\\(slime\\|lisp\\)" (symbol-name major-mode))               ;;   Whatever we find near the point
+                                             (thing-at-point 'sexp))                                                    ;;   A sexp in lisp modes
+                                        (and (thing-at-point-looking-at "\\([^[:space:]]+\\)" 30)                       ;;   A string with no white space otherwise
+                                             (match-string 0))                                                       
+                                        "")))                                                                           ;;   Or the empty string
+                       (if (mjr-eval-unsigned-integer buf-str)                                                          ;; Check if the guess looks like an int
+                           (list buf-str :int)                                                                          ;;   If so, then :int mode
+                           (let ((eval-str (read-string "Expression to evaluate: " buf-str)))                           ;;   Otherwise read something from the user
+                             (if (mjr-eval-unsigned-integer eval-str)                                                   ;; Check if it looks like an integer
+                                 (list eval-str :int)                                                                   ;;   If so, then :int mode
+                                 (list eval-str                                                                         ;;   Otherwise read engine
+                                       (if (eq mjr-eval-meta-how-read 'mjr-eval-util-read-engine)
+                                           (mjr-eval-util-read-engine mjr-eval-meta-engines)                            ;;     Use mjr-eval-util-read-engine
+                                           (let* ((engine-list (cl-remove-if-not #'caddr mjr-eval-meta-engines)))
+                                             (intern (pcase mjr-eval-meta-how-read                                 
+                                                       ('read-answer                                        
+                                                        (let ((read-answer-short t))                                    ;;     Use read-answer
+                                                          (read-answer "Eval how: "
+                                                                       (mapcar (lambda (x) (list (symbol-name (car x)) 
+                                                                                                 (caddr x)
+                                                                                                 (format "Use %s" (cadr x))))
+                                                                               engine-list))))
+                                                       ('read-multiple-choice                                          ;;     Use read-multiple-choice
+                                                        (cadr (read-multiple-choice "Eval how: " 
+                                                                                    (mapcar (lambda (x) (list (caddr x) 
+                                                                                                              (symbol-name (car x)))) 
+                                                                                            engine-list)
+                                                                                    (mapconcat (lambda (x) (format (concat "%s: Use %s\n") 
+                                                                                                                   (car x)
+                                                                                                                   (cadr x))) 
+                                                                                               engine-list))))))))))))))))
   (let ((engine-info (cdr (assoc engine (append mjr-eval-meta-engines)))))
-    (message "EI: %S" engine-info)
     (if eval-str
         (if-let ((engine-err (mjr-eval-meta nil engine)))
             (error engine-err)
@@ -768,7 +789,7 @@ Arguments:
               (format "mjr-eval-meta: ENGINE (%s) was not found in `mjr-eval-meta-engines'!" engine))
             (unless (listp engine-info)
               (format "mjr-eval-meta: ENGINE (%s) has malformed entry in `mjr-eval-meta-engines'! Not a list!" engine))
-            (unless (= 3 (length engine-info))
+            (unless (= 2 (length engine-info))
               (format "mjr-eval-meta: ENGINE (%s) has malformed entry in `mjr-eval-meta-engines'! Wrong length!" engine))
             (funcall (car engine-info) nil engine)))))
 
@@ -786,7 +807,7 @@ Arguments:
 ;; (mjr-eval-meta "inv([1,2,3;4,5,6;7,8,10])" :calc)
 ;; "[[-0.666666666667, -1.33333333333, 1], [-0.666666666667, 3.66666666667, -2], [1, -2, 1]]"
 ;;
-;; (mjr-eval-meta "inv([[1,2,3],[4,5,6],[7,8,10]])" :calc)
+;; (mjr-eval-meta "r" :calc)
 ;; "[[-0.666666666667, -1.33333333333, 1], [-0.666666666667, 3.66666666667, -2], [1, -2, 1]]"
 ;;
 ;; (mjr-eval-meta "invert(matrix([1,2,3],[4,5,6],[7,8,10]))" :maxima-session)
