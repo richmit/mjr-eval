@@ -19,7 +19,7 @@
 ;; TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ;; Author:      Mitch Richling
-;; Version:     3.8
+;; Version:     3.9
 ;; Keywords:    mjr-eval
 ;; URL:         https://github.com/richmit/mjr-eval
 
@@ -614,7 +614,7 @@ binary based on the command name in `mjr-eval-external-one-engines' and add it t
                            (if (and cached (stringp (cdr cached)) (file-exists-p (cdr cached)))
                                (cdr cached)
                                (when-let* ((path (or (if (fboundp 'el-vergo-or-path)
-                                                         (car (funcall 'el-vergo-or-path cmd)))
+                                                         (funcall 'el-vergo-or-path cmd))
                                                      (locate-file cmd exec-path (list ".exe" ".com" ".bat" ""))))
                                            (     (file-exists-p path)))
                                  (when cached
